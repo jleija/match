@@ -86,4 +86,22 @@ describe("match", function()
                         m.match(source,
                             {[m.key]={1, m.value, m.rest}}))
     end)
+    it("matches a structure in an array", function()
+        local array = {
+            {name="size", type="int", other={1,2,3}},
+            {name="type", type="char", other="x"},
+            {name="stats", type="struct_a", stats={
+                                                mean = 45,
+                                                max = 70}},
+        }
+        assert.is.same({name="type",type="char"},
+                       m.match(array,{name="type",type=m.value}))
+        assert.is.same({name="stats", stats={mean=45,max=70}},
+                       m.match(array,{name=m.value, 
+                                      [m.key]=
+                                          {mean=m.value,max=m.value}}))
+        assert.is.same({mean=45},m.match(array,{mean=m.value}))
+        assert.is.same({name="type",other="x"},
+                                m.match(array, {name=m.value,other="x"}))
+    end)
 end)
