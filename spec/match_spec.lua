@@ -80,7 +80,7 @@ describe("match", function()
     it("matches value and rest in an array", function()
         assert.is.same({"a", {"b", "c"}}, 
                         m.match_anywhere({"a", "b", "c"}, 
-                                         {m.value, m.rest}))
+                                         {m.head, m.tail}))
         local source = {x={y={"a","b","c"}, z={1,2,3,4,5}}}
         assert.is.same({z={1,2,{3,4,5}}}, 
                         m.match_anywhere(source,

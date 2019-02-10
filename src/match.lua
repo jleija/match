@@ -103,7 +103,9 @@ end
 return {
     key = key,
     value = value,
+    head = value,
     rest = rest,
+    tail = rest,
     match = match,
     match_anywhere = match_anywhere
 }
