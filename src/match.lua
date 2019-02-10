@@ -27,12 +27,12 @@ local function match_empties(a, b)
     end
 end
 
-local function match(a, b)
+local function match_root(a, b)
     local function key_in_table(t, k, v)
         if k == key then
             return function(t, key_fn, value)
                 for k, v in pairs(t) do
-                    local res = match(t[k], value)
+                    local res = match_root(t[k], value)
                     if res then return res, k end
                 end
                 return nil
@@ -44,7 +44,7 @@ local function match(a, b)
             end, k
         end
         if t[k] then 
-            return function(t, k, v) return match(t[k], v), k end, k
+            return function(t, k, v) return match_root(t[k], v), k end, k
         else
             return function() return nil, nil end, k
         end
@@ -81,8 +81,8 @@ local function match(a, b)
     return nil
 end
 
-local function match_anywhere(a, b, visited)
-    local res = match(a, b)
+local function match(a, b, visited)
+    local res = match_root(a, b)
     if res then return res end
 
     if type(a) == "table" then
@@ -91,7 +91,7 @@ local function match_anywhere(a, b, visited)
         for k, v in pairs(a) do
             if type(v) == "table" then
                 if not visited[v] then
-                    local res = match_anywhere(v, b, visited)
+                    local res = match(v, b, visited)
                     if res then return res end
                 end
             end
@@ -106,6 +106,6 @@ return {
     head = value,
     rest = rest,
     tail = rest,
-    match = match,
-    match_anywhere = match_anywhere
+    match_root = match_root,
+    match = match
 }
