@@ -5,7 +5,21 @@ local function is_empty_table(a)
     return true
 end
 
+local function is_array(t)
+    return t[1] or is_empty_table(t)
+end
+
 local function value(v) return v end
+local function key(k) return k end
+local function rest(t, k)
+    assert(is_array(t), "rest can be applied only to arrays")
+    assert(type(k) == "number", "Invalid key: '" .. k .. "' of type " .. type(k))
+    local res = {}
+    for i=k,#t do
+        table.insert(res, t[i])
+    end
+    return res
+end
 
 local function match_empties(a, b)
     if is_empty_table(a) and is_empty_table(b) then
@@ -14,6 +28,28 @@ local function match_empties(a, b)
 end
 
 local function match(a, b)
+    local function key_in_table(t, k, v)
+        if k == key then
+            return function(t, key_fn, value)
+                for k, v in pairs(t) do
+                    local res = match(t[k], value)
+                    if res then return res, k end
+                end
+                return nil
+            end, k
+        end
+        if v == rest and is_array(t) then
+            return function(t, key, value)
+                return rest(t, k), k
+            end, k
+        end
+        if t[k] then 
+            return function(t, k, v) return match(t[k], v), k end, k
+        else
+            return function() return nil, nil end, k
+        end
+    end
+
     if a == b then return b end
     if type(b) == "function" then
         return b(a)
@@ -27,10 +63,11 @@ local function match(a, b)
         local did_match = true
         local at_least_one = false
         for k, v in pairs(b) do
-            if a[k] then
-                local match_result = match(a[k], v) 
+            local matcher, key = key_in_table(a, k, v)
+            if key then
+                local match_result, matched_k = matcher(a, key, v)
                 if match_result then
-                    matches[k] = match_result
+                    matches[matched_k] = match_result
                     at_least_one = true
                 else
                     did_match = false
@@ -64,7 +101,9 @@ local function match_anywhere(a, b, visited)
 end
 
 return {
+    key = key,
     value = value,
+    rest = rest,
     match = match,
     match_anywhere = match_anywhere
 }

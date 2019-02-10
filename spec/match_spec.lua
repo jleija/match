@@ -18,6 +18,7 @@ describe("match", function()
     end)
     it("matches shallow arrays with some same elements", function()
         assert.is.same({"a","b"}, m.match({"a","b","c"}, {m.value,"b"}))
+        assert.is.same({"a","b"}, m.match({"a","b","c"}, {m.value,m.value}))
     end)
     it("matches all possible shallow tables with some same elements", function()
         assert.is.same({x = 1, y = 2}, m.match({x=1,y=2}, {x=1,y=2}))
@@ -70,5 +71,19 @@ describe("match", function()
         assert.is.same({x = {y = 2}}, 
                        m.match_anywhere(a, 
                        { x = { y = function(x) return (x > 1) and x end}}))
+    end)
+    it("matches key and sub-table", function()
+        local source = {a={b={x={y=1}, z={y=2}}}}
+        assert.is.same({x={y=1}}, m.match_anywhere(source, {[m.key]={y=1}}))
+        assert.is.same({z={y=2}}, m.match_anywhere(source, {[m.key]={y=2}}))
+    end)
+    it("matches value and rest in an array", function()
+        assert.is.same({"a", {"b", "c"}}, 
+                        m.match_anywhere({"a", "b", "c"}, 
+                                         {m.value, m.rest}))
+        local source = {x={y={"a","b","c"}, z={1,2,3,4,5}}}
+        assert.is.same({z={1,2,{3,4,5}}}, 
+                        m.match_anywhere(source,
+                            {[m.key]={1, m.value, m.rest}}))
     end)
 end)
