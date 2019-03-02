@@ -77,14 +77,14 @@ describe("match", function()
         assert.is.same({x={y=1}}, m.match(source, {[m.key]={y=1}}))
         assert.is.same({z={y=2}}, m.match(source, {[m.key]={y=2}}))
     end)
-    it("matches value and rest in an array", function()
+    it("matches value and tail in an array", function()
         assert.is.same({"a", {"b", "c"}}, 
                         m.match({"a", "b", "c"}, 
                                          {m.head, m.tail}))
         local source = {x={y={"a","b","c"}, z={1,2,3,4,5}}}
         assert.is.same({z={1,2,{3,4,5}}}, 
                         m.match(source,
-                            {[m.key]={1, m.value, m.rest}}))
+                            {[m.key]={1, m.value, m.tail}}))
     end)
     it("matches a structure in an array", function()
         local array = {
@@ -103,5 +103,13 @@ describe("match", function()
         assert.is.same({mean=45},m.match(array,{mean=m.value}))
         assert.is.same({name="type",other="x"},
                                 m.match(array, {name=m.value,other="x"}))
+    end)
+    describe("match_all", function()
+        it("can return all matches", function()
+            assert.is.same({{x=5,y=2},{x=5,y=3}}, m.match_all({{x=5,y=2},{x=5,y=3}}, {x=5,y=m.value}))
+            assert.is.same({{y=2},{y=3}}, m.match_all({{x=5,y=2},{x=5,y=3}}, {y=m.value}))
+            assert.is.same(5, m.match_all(5, m.value))
+            assert.is.same({{x=5,y=2},{x=5,y=3,z=4}}, m.match_all({{x=5,y=2},{x=5,y=3,z=4}}, {x=5,m.rest}))
+        end)
     end)
 end)

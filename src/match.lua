@@ -11,12 +11,21 @@ end
 
 local function value(v) return v end
 local function key(k) return k end
-local function rest(t, k)
-    assert(is_array(t), "rest can be applied only to arrays")
+local function tail(t, k)
+    assert(is_array(t), "tail can be applied only to arrays")
     assert(type(k) == "number", "Invalid key: '" .. k .. "' of type " .. type(k))
     local res = {}
     for i=k,#t do
         table.insert(res, t[i])
+    end
+    return res
+end
+local function rest(t, b)
+    local res = {}
+    for ik, iv in pairs(t) do
+        if not b[ik] then
+            res[ik] = iv
+        end
     end
     return res
 end
@@ -38,9 +47,14 @@ local function match_root(a, b)
                 return nil
             end, k
         end
-        if v == rest and is_array(t) then
+        if v == tail and is_array(t) then
             return function(t, key, value)
-                return rest(t, k), k
+                return tail(t, k), k
+            end, k
+        end
+        if v == rest then
+            return function(t, key, value)
+                return rest(t, b), k, true        -- splat
             end, k
         end
         if t[k] then 
@@ -51,6 +65,10 @@ local function match_root(a, b)
     end
 
     if a == b then return b end
+--    if type(b) == "function" then
+    if b == value then
+        return b(a)
+    end
     if type(b) == "function" then
         return b(a)
     end
@@ -65,9 +83,15 @@ local function match_root(a, b)
         for k, v in pairs(b) do
             local matcher, key = key_in_table(a, k, v)
             if key then
-                local match_result, matched_k = matcher(a, key, v)
+                local match_result, matched_k, splat = matcher(a, key, v)
                 if match_result then
-                    matches[matched_k] = match_result
+                    if splat then
+                        for k, v in pairs(match_result) do
+                            matches[k] = v
+                        end
+                    else
+                        matches[matched_k] = match_result
+                    end
                     at_least_one = true
                 else
                     did_match = false
@@ -100,12 +124,34 @@ local function match(a, b, visited)
     return nil
 end
 
+local function match_all(a, b, visited)
+    local res = match_root(a, b)
+    if res then return res end
+
+    if type(a) == "table" then
+        local matched = {}
+        visited = visited or {}
+        visited[a] = true
+        for k, v in pairs(a) do
+            if type(v) == "table" then
+                if not visited[v] then
+                    local res = match(v, b, visited)
+                    if res then table.insert(matched, res) end
+                end
+            end
+        end
+        return matched
+    end
+    return {}
+end
+
 return {
     key = key,
     value = value,
     head = value,
     rest = rest,
-    tail = rest,
+    tail = tail,
     match_root = match_root,
-    match = match
+    match = match,
+    match_all = match_all
 }
