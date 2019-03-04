@@ -23,7 +23,7 @@ end
 local function rest(t, present)
     local res = {}
     for ik, iv in pairs(t) do
-        if not present[ik] then
+        if not present[ik] or present[ik] == rest then
             res[ik] = iv
         end
     end

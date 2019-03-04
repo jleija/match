@@ -73,16 +73,27 @@ describe("match", function()
                        { x = { y = function(x) return (x > 1) and x end}}, a))
     end)
     it("matches key and sub-table", function()
-        local source = {a={b={x={y=1}, z={y=2}}}}
-        assert.is.same({x={y=1}}, m.match( {[m.key]={y=1}}, source))
-        assert.is.same({z={y=2}}, m.match( {[m.key]={y=2}}, source))
+        local target = {a={b={x={y=1}, z={y=2}}}}
+        assert.is.same({x={y=1}}, m.match( {[m.key]={y=1}}, target))
+        assert.is.same({z={y=2}}, m.match( {[m.key]={y=2}}, target))
     end)
     it("matches value and tail in an array", function()
         assert.is.same({"a", {"b", "c"}}, 
                         m.match( {m.head, m.tail}, {"a", "b", "c"}))
-        local source = {x={y={"a","b","c"}, z={1,2,3,4,5}}}
+        local target = {x={y={"a","b","c"}, z={1,2,3,4,5}}}
         assert.is.same({z={1,2,{3,4,5}}}, 
-                        m.match( {[m.key]={1, m.value, m.tail}}, source))
+                        m.match( {[m.key]={1, m.value, m.tail}}, target))
+    end)
+    it("matches value and rest in an array", function()
+        assert.is.same({"a", "b", "c"}, 
+                        m.match( {m.head, m.rest}, {"a", "b", "c"}))
+    end)
+    it("matches value and rest in a table", function()
+        assert.is.same({x=1, y=2, z=3},
+                        m.match( {z=3, m.rest}, {x=1, y=2, z=3}))
+        -- deeper
+        assert.is.same({x=1, y=2, z=3},
+                        m.match( {z=3, m.rest}, {a={x=1, y=2, z=3}, b={1,2}}))
     end)
     it("matches a structure in an array", function()
         local array = {
