@@ -51,6 +51,14 @@ local function rest(t, present)
     end
     return res
 end
+local function nothing(t, present)
+    for ik, iv in pairs(t) do
+        if present[ik] ~= key and (not present[ik] or present[ik] == nothing) then
+            return nil
+        end
+    end
+    return nothing
+end
 local function var(var_name)
     return function(value)
         --assign value to some collection
@@ -73,7 +81,9 @@ local function match_root( pattern, target)
                 return function(t, key_fn, value)
                     for k, v in pairs(t) do
                         local res = match_root_recursive( value, t[k])
-                        if res then return res, k end
+                        if res then 
+                            return res, k 
+                        end
                     end
                     return nil
                 end, k
@@ -86,6 +96,11 @@ local function match_root( pattern, target)
             if v == rest then
                 return function(t, key, value)
                     return rest(t, pattern), k, true        -- splat
+                end, k
+            end
+            if v == nothing then
+                return function(t, key, value)
+                    return nothing(t, pattern), k
                 end, k
             end
             if t[k] then 
@@ -124,7 +139,9 @@ local function match_root( pattern, target)
                                 matches[k] = v
                             end
                         else
-                            matches[matched_k] = match_result
+                            if match_result ~= nothing then
+                                matches[matched_k] = match_result
+                            end
                         end
                         at_least_one = true
                     else
@@ -190,6 +207,7 @@ return {
     value = value,
     head = value,
     rest = rest,
+    nothing = nothing,
     tail = tail,
     var = var,
     match_root = match_root,

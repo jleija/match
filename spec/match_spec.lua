@@ -95,6 +95,14 @@ describe("match", function()
         assert.is.same({x=1, y=2, z=3},
                         m.match( {z=3, m.rest}, {a={x=1, y=2, z=3}, b={1,2}}))
     end)
+    it("can do an exact/complete match with #nothing extra", function()
+        assert.is.same({1,2}, m.match({1,2,m.nothing},{1,2}))
+        assert.is.falsy(m.match({1,2,m.nothing},{1,2,3}))
+
+        assert.is.same({x=1,y=2}, m.match({x=m.value,y=m.value,m.nothing},{x=1,y=2}))
+--        assert.is.same({x=1,y=2}, m.match({x=m.value,[m.key]=2,m.nothing},{x=1,y=2}))
+        assert.is.falsy(m.match({x=1,y=2,m.nothing},{x=1,y=2,z=3}))
+    end)
     it("matches a structure in an array", function()
         local array = {
             {name="size", type="int", other={1,2,3}},
