@@ -1,5 +1,5 @@
-local function is_empty_table(a)
-    for _, _ in pairs(a) do
+local function is_empty_table(t)
+    for _, _ in pairs(t) do
         return false
     end
     return true
@@ -20,10 +20,10 @@ local function tail(t, k)
     end
     return res
 end
-local function rest(t, b)
+local function rest(t, present)
     local res = {}
     for ik, iv in pairs(t) do
-        if not b[ik] then
+        if not present[ik] then
             res[ik] = iv
         end
     end
@@ -36,12 +36,12 @@ local function match_empties(a, b)
     end
 end
 
-local function match_root(a, b)
+local function match_root( pattern, target)
     local function key_in_table(t, k, v)
         if k == key then
             return function(t, key_fn, value)
                 for k, v in pairs(t) do
-                    local res = match_root(t[k], value)
+                    local res = match_root( value, t[k])
                     if res then return res, k end
                 end
                 return nil
@@ -54,36 +54,36 @@ local function match_root(a, b)
         end
         if v == rest then
             return function(t, key, value)
-                return rest(t, b), k, true        -- splat
+                return rest(t, pattern), k, true        -- splat
             end, k
         end
         if t[k] then 
-            return function(t, k, v) return match_root(t[k], v), k end, k
+            return function(t, k, v) return match_root( v, t[k]), k end, k
         else
             return function() return nil, nil end, k
         end
     end
 
-    if a == b then return b end
---    if type(b) == "function" then
-    if b == value then
-        return b(a)
+    if target == pattern then return pattern end
+--    if type(pattern) == "function" then
+--    if pattern == value then
+--        return pattern(target)
+--    end
+    if type(pattern) == "function" then
+        return pattern(target)
     end
-    if type(b) == "function" then
-        return b(a)
-    end
-    if type(a) ~= type(b) then return nil end
-    if type(b) == "table" then
-        local res = match_empties(a, b) 
+    if type(target) ~= type(pattern) then return nil end
+    if type(pattern) == "table" then
+        local res = match_empties( pattern, target) 
         if res then return res end
 
         local matches = {}
         local did_match = true
         local at_least_one = false
-        for k, v in pairs(b) do
-            local matcher, key = key_in_table(a, k, v)
+        for k, v in pairs(pattern) do
+            local matcher, key = key_in_table(target, k, v)
             if key then
-                local match_result, matched_k, splat = matcher(a, key, v)
+                local match_result, matched_k, splat = matcher(target, key, v)
                 if match_result then
                     if splat then
                         for k, v in pairs(match_result) do
@@ -105,17 +105,17 @@ local function match_root(a, b)
     return nil
 end
 
-local function match(a, b, visited)
-    local res = match_root(a, b)
+local function match(pattern, target, visited)
+    local res = match_root( pattern, target)
     if res then return res end
 
-    if type(a) == "table" then
+    if type(target) == "table" then
         visited = visited or {}
-        visited[a] = true
-        for k, v in pairs(a) do
+        visited[target] = true
+        for k, v in pairs(target) do
             if type(v) == "table" then
                 if not visited[v] then
-                    local res = match(v, b, visited)
+                    local res = match( pattern, v, visited)
                     if res then return res end
                 end
             end
@@ -124,18 +124,18 @@ local function match(a, b, visited)
     return nil
 end
 
-local function match_all(a, b, visited)
-    local res = match_root(a, b)
+local function match_all(pattern, target, visited)
+    local res = match_root( pattern, target)
     if res then return res end
 
-    if type(a) == "table" then
+    if type(target) == "table" then
         local matched = {}
         visited = visited or {}
-        visited[a] = true
-        for k, v in pairs(a) do
+        visited[target] = true
+        for k, v in pairs(target) do
             if type(v) == "table" then
                 if not visited[v] then
-                    local res = match(v, b, visited)
+                    local res = match(pattern, v, visited)
                     if res then table.insert(matched, res) end
                 end
             end
