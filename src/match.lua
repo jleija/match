@@ -1,3 +1,5 @@
+local mm=require'mm'
+
 local function is_empty_table(t)
     for _, _ in pairs(t) do
         return false
@@ -59,6 +61,11 @@ local function nothing(t, present)
     end
     return nothing
 end
+
+local function tail_promise() end
+local function rest_promise() end
+local function nothing_promise() end
+
 local function var(var_name)
     return function(value)
         --assign value to some collection
@@ -75,6 +82,8 @@ end
 
 local function match_root( pattern, target)
     local captures = {}
+    local resolve_promises = false
+    local second_pass = false
     local function match_root_recursive( pattern, target)
         local function key_in_table(t, k, v)
             if k == key then
@@ -88,18 +97,36 @@ local function match_root( pattern, target)
                     return nil
                 end, k
             end
+            if v == tail_promise and is_array(t) then
+                resolve_promises = true
+                return function(t, _, _)
+                    return tail, k
+                end, k
+            end
+            if v == rest_promise then
+                resolve_promises = true
+                return function(t, _, _)
+                    return rest, k
+                end, k
+            end
+            if v == nothing_promise then
+                resolve_promises = true
+                return function(t, _, _)
+                    return nothing, k
+                end, k
+            end
             if v == tail and is_array(t) then
-                return function(t, key, value)
+                return function(t, _, _)
                     return tail(t, k), k
                 end, k
             end
             if v == rest then
-                return function(t, key, value)
+                return function(t, _, _)
                     return rest(t, pattern), k, true        -- splat
                 end, k
             end
             if v == nothing then
-                return function(t, key, value)
+                return function(t, _, _)
                     return nothing(t, pattern), k
                 end, k
             end
@@ -139,7 +166,7 @@ local function match_root( pattern, target)
                                 matches[k] = v
                             end
                         else
-                            if match_result ~= nothing then
+                            if not second_pass or match_result ~= nothing then
                                 matches[matched_k] = match_result
                             end
                         end
@@ -156,7 +183,14 @@ local function match_root( pattern, target)
         return nil
     end
 
-    return match_root_recursive(pattern, target), captures
+    local matched_table = match_root_recursive(pattern, target)
+
+    if resolve_promises then
+        second_pass = true
+        matched_table = match_root_recursive(matched_table, target)
+    end
+    
+    return matched_table, captures
 end
 
 local function match(pattern, target, visited)
@@ -206,9 +240,9 @@ return {
     key = key,
     value = value,
     head = value,
-    rest = rest,
-    nothing = nothing,
-    tail = tail,
+    rest = rest_promise,
+    nothing = nothing_promise,
+    tail = tail_promise,
     var = var,
     match_root = match_root,
     match = match,
