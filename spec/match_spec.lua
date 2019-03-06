@@ -29,6 +29,20 @@ describe("match", function()
     it("does not match shallow tables with missing same elements (all pattern elements are required)", function()
         assert.is.falsy(m.match_root( {x=1,y=2}, {x=1}))
     end)
+    it("does not match if a custom match function returns nil", function()
+        local pattern = {x=function(element) return element == 2 or nil end}
+        assert.is.falsy(m.match_root(pattern, {x=3})) 
+    end)
+    it("matches if a custom match function returns a value other than nil", function()
+        local pattern = {x=function(element) return element == 2 end}
+        assert.is.truthy(m.match_root(pattern, {x=2})) 
+
+        local pattern = {x=function(element) return element == 2 and true end}
+        assert.is.same({x=true}, m.match_root(pattern, {x=2})) 
+
+        local pattern = {x=function(element) return element == 2 and false end}
+        assert.is.same({x=false}, m.match_root(pattern, {x=2})) 
+    end)
     it("matches with special matchers", function()
         assert.is.same({x = 5}, m.match_root( {x=m.value}, {x=5,y=2}))
         assert.is.falsy(m.match_root( {x=m.value,y=1}, {x=1,y=2}))

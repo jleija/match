@@ -144,7 +144,7 @@ local function match_root( pattern, target)
         if target == pattern then return pattern end
         if type(pattern) == "function" then
             local v, var = pattern(target)
-            if var then
+            if var and (type(var) == "string" or type(var) == "number") then
                 if captures[var] and not deepcompare(v, captures[var]) then
                     return nil
                 end
