@@ -177,6 +177,26 @@ describe("match", function()
             assert.is.falsy(matched)
             assert.is.same({}, captures)
         end)
+        it("can retrieve the variables after their use (needed for pattern dispatch)", function()
+            local X, Y = m.var'x', m.var'y'
+            local matched, captures, vars = m.match({X, Y}, {1, 2})
+            assert.is.equal('x', vars[X])
+            assert.is.equal('y', vars[Y])
+            assert.is.equal(1, X())
+            assert.is.equal(2, Y())
+        end)
+        it("keeps the last variable matched value in vars when a match_all is performed", function()
+            local X = m.var'x'
+            local matched, captures, vars = m.match_all(X, {1, 1, 1})
+            assert.is.same({1,1,1}, matched)
+            assert.is.equal(1, X())
+
+            local X = m.var'x'
+            local matched, captures, vars = m.match_all(X, {1, 1, 2})
+            assert.is.truthy(matched)
+            assert.is.same({1,1,2}, matched)
+            assert.is.equal(2, X())     -- last value
+        end)
     end)
 
 end)

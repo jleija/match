@@ -1,5 +1,3 @@
-local mm=require'mm'
-
 local function is_empty_table(t)
     for _, _ in pairs(t) do
         return false
@@ -67,9 +65,14 @@ local function rest_promise() end
 local function nothing_promise() end
 
 local function var(var_name)
+    local bound_value
     return function(value)
-        --assign value to some collection
-        --or
+        if value == nil then
+            return bound_value, var_name
+        end
+--        if bound_value == nil then    -- sticky bound of updatable?
+            bound_value = value
+--        end
         return value, var_name
     end
 end
@@ -82,6 +85,7 @@ end
 
 local function match_root( pattern, target)
     local captures = {}
+    local vars = {}
     local resolve_promises = false
     local second_pass = false
     local function match_root_recursive( pattern, target)
@@ -90,7 +94,7 @@ local function match_root( pattern, target)
                 return function(t, key_fn, value)
                     for k, v in pairs(t) do
                         local res = match_root_recursive( value, t[k])
-                        if res then 
+                        if res ~= nil then 
                             return res, k 
                         end
                     end
@@ -145,6 +149,10 @@ local function match_root( pattern, target)
                     return nil
                 end
                 captures[var] = v
+--                if v ~= pattern() then -- fail on diff sticky bounded value?
+--                    return nil
+--                end
+                vars[pattern] = var
             end
             return v
         end
@@ -160,7 +168,7 @@ local function match_root( pattern, target)
                 local matcher, key = key_in_table(target, k, v)
                 if key then
                     local match_result, matched_k, splat = matcher(target, key, v)
-                    if match_result then
+                    if match_result ~= nil then
                         if splat then
                             for k, v in pairs(match_result) do
                                 matches[k] = v
@@ -190,12 +198,12 @@ local function match_root( pattern, target)
         matched_table = match_root_recursive(matched_table, target)
     end
     
-    return matched_table, captures
+    return matched_table, captures, vars
 end
 
 local function match(pattern, target, visited)
-    local res, captures = match_root( pattern, target)
-    if res then return res, captures end
+    local res, captures, vars = match_root( pattern, target)
+    if res ~= nil then return res, captures, vars end
 
     if type(target) == "table" then
         visited = visited or {}
@@ -203,37 +211,39 @@ local function match(pattern, target, visited)
         for k, v in pairs(target) do
             if type(v) == "table" then
                 if not visited[v] then
-                    local res, captures = match( pattern, v, visited)
-                    if res then return res, captures end
+                    local res, captures, vars = match( pattern, v, visited)
+                    if res ~= nil then return res, captures, vars end
                 end
             end
         end
     end
-    return nil, {}
+    return nil, {}, {}
 end
 
 local function match_all(pattern, target, visited)
-    local res, captures = match_root( pattern, target)
-    if res then return res, { captures } end
-
     local capture_array = {}
+    local var_array = {}
 
     if type(target) == "table" then
         local matched = {}
         visited = visited or {}
         visited[target] = true
         for k, v in pairs(target) do
-            if type(v) == "table" then
-                if not visited[v] then
-                    local res, captures = match(pattern, v, visited)
+            if not visited[v] then
+                local res, captures, vars = match(pattern, v, visited)
+                if res ~= nil then 
+                    table.insert(matched, res) 
                     table.insert(capture_array, captures)
-                    if res then table.insert(matched, res) end
+                    table.insert(var_array, vars)
                 end
             end
         end
-        return matched, capture_array
+        return matched, capture_array, var_array
+    else
+        local res, captures, vars = match_root( pattern, target)
+        if res ~= nil then return res, { captures }, { vars } end
     end
-    return {}, {}
+    return {}, {}, {}
 end
 
 return {
