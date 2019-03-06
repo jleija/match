@@ -198,5 +198,60 @@ describe("match", function()
             assert.is.equal(2, X())     -- last value
         end)
     end)
+end)
 
+describe("matcher", function()
+    local X, A, B = m.var'x', m.var'a', m.var'b'
+    local matcher = m.matcher{
+        { 1,                "one" },
+        { {"identity"},     m.iden },
+        { {x=X},            X},
+        { {sum={a=m.var'a',b=m.var'b'}},  function(captures) return captures.a + captures.b end },
+        { {sum={m.var(1),m.var(2)}},      function(captures) return captures[1] + captures[2] end },
+        { {v={A, B}},        {p=A, q=B}},
+        { {v={a=A, b=B}},        {pp=A, qq={b=B}, {[A]=B}}},
+        { m.value,          "catch-all value" },
+    }
+    it("applies identity transform", function()
+        assert.is.same({"identity"}, matcher({"identity"}))
+    end)
+    it("applies variable bound value transformation", function()
+        assert.is.equal(3, matcher({x=3}))
+    end)
+    it("applies matching const transform", function()
+        assert.is.equal("one", matcher(1))
+        assert.is.equal("catch-all value", matcher(5))
+    end)
+    it("applies matching custom function transform with captures", function()
+        assert.is.equal(5, matcher{sum={a=2,b=3}})
+        assert.is.equal(7, matcher{sum={3,4}})
+    end)
+    it("applies variable substitution in transform table", function()
+        assert.is.same({p=2,q=3}, matcher{v={2,3}})
+    end)
+    it("applies multiple variable substitution (key and value) in transform table", function()
+        assert.is.same({pp='x',qq={b='y'}, {x='y'}}, matcher{v={a='x',b='y'}})
+    end)
+    it("should not match a non-root pattern", function()
+        assert.is.equal("catch-all value", matcher({y={x=1}}))
+
+        local matcher = m.matcher{
+            { {y=1}, "y1" }
+        }
+        assert.is_nil(matcher({x={y=1}}))
+    end)
+    it("should return nil when nothing is matched", function()
+        local matcher = m.matcher{
+            { 1, "one" }
+        }
+        assert.is_nil(matcher(2))
+    end)
+
+    it("errors out when trying to apply transform with unbounded variable with equally-named variable in match (two variable instances with same name)", function()
+        local matcher = m.matcher{
+            { {x=m.var'x'}, m.var'x' }
+        }
+        assert.is.error(function() matcher({x=3}) end, 
+            "Possibly trying to apply an unbound variable with same name as bound variable 'x': Make sure to use the same instance of var in the match and its transform (#1)")
+    end)
 end)

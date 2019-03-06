@@ -246,6 +246,70 @@ local function match_all(pattern, target, visited)
     return {}, {}, {}
 end
 
+local is_const_transform_type = {
+    number = true,
+    string = true,
+    boolean = true
+}
+
+local function iden() end
+
+local function eval_function_or_var(transform, captures, vars, n)
+    local v, maybe_var_name = transform(captures)
+    if maybe_var_name ~= nil and type(maybe_var_name) == "string" then
+        for f, var_name in pairs(vars) do
+            if var_name == maybe_var_name then
+                error("Possibly trying to apply an unbound variable with same name as bound variable '" .. var_name .. "': Make sure to use the same instance of var in the match and its transform (#" .. n .. ")")
+            end
+        end
+    end
+    return v
+end
+
+local function apply_vars(t, vars)
+    local res = {}
+    for k, v in pairs(t) do
+        local key, value = k, v
+        if type(k) == "function" and vars[k] then
+            key = k()
+        end
+        if type(v) == "table" then
+            value = apply_vars(value, vars)
+        elseif type(v) == "function" and vars[v] then
+            value = v()
+        end
+        res[key] = value
+    end
+    return res
+end
+
+local function apply_match(transform, matched, captures, vars, n)
+    if transform == iden then
+        return matched
+    elseif vars[transform] then
+        return transform()
+    elseif type(transform) == "function" then
+        return eval_function_or_var(transform, captures, vars, n)
+    elseif is_const_transform_type[type(transform)] then
+        return transform
+    elseif type(transform) == "table" then
+        return apply_vars(transform, vars)
+    else
+        error("what type of transform is this? " .. type(transform))
+    end
+end
+
+local function matcher(match_pairs)
+    return function(target)
+        for i, match_pair in ipairs(match_pairs) do
+            local matched, captures, vars = match_root(match_pair[1], target)
+            if matched ~= nil then
+                return apply_match(match_pair[2], matched, captures, vars, i)
+            end
+        end
+    end
+end
+
 return {
     key = key,
     value = value,
@@ -256,5 +320,7 @@ return {
     var = var,
     match_root = match_root,
     match = match,
-    match_all = match_all
+    match_all = match_all,
+    matcher = matcher,
+    iden = iden
 }
