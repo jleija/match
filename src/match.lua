@@ -1,12 +1,24 @@
 local function is_empty_table(t)
     for _, _ in pairs(t) do
-        return false
+        return nil
     end
     return true
 end
 
 local function is_array(t)
     return t[1] or is_empty_table(t)
+end
+
+local function is_number(x)
+    return type(x) == "number" or nil
+end
+
+local function is_string(x)
+    return type(x) == "string" or nil
+end
+
+local function is_boolean(x)
+    return type(x) == "boolean" or nil
 end
 
 -- deepcompare taken from: 
@@ -88,7 +100,7 @@ local function match_root( pattern, target)
     local vars = {}
     local resolve_promises = false
     local second_pass = false
-    local function match_root_recursive( pattern, target)
+    local function match_root_recursive(pattern, target)
         local function key_in_table(t, k, v)
             if k == key then
                 return function(t, key_fn, value)
@@ -134,7 +146,7 @@ local function match_root( pattern, target)
                     return nothing(t, pattern), k
                 end, k
             end
-            if t[k] then 
+            if t[k] ~= nil then 
                 return function(t, k, v) return match_root_recursive( v, t[k]), k end, k
             else
                 return function() return nil, nil end, k
@@ -144,8 +156,8 @@ local function match_root( pattern, target)
         if target == pattern then return pattern end
         if type(pattern) == "function" then
             local v, var = pattern(target)
-            if var and (type(var) == "string" or type(var) == "number") then
-                if captures[var] and not deepcompare(v, captures[var]) then
+            if var and (type(var) == "string" or type(var) == "number" or type(var) == "boolean") then
+                if captures[var] ~= nil and not deepcompare(v, captures[var]) then
                     return nil
                 end
                 captures[var] = v
@@ -159,14 +171,14 @@ local function match_root( pattern, target)
         if type(target) ~= type(pattern) then return nil end
         if type(pattern) == "table" then
             local res = match_empties( pattern, target) 
-            if res then return res end
+            if res ~= nil then return res end
 
             local matches = {}
             local did_match = true
             local at_least_one = false
             for k, v in pairs(pattern) do
                 local matcher, key = key_in_table(target, k, v)
-                if key then
+                if key ~= nil then
                     local match_result, matched_k, splat = matcher(target, key, v)
                     if match_result ~= nil then
                         if splat then
@@ -322,5 +334,8 @@ return {
     match = match,
     match_all = match_all,
     matcher = matcher,
-    iden = iden
+    iden = iden,
+    is_number = is_number,
+    is_string = is_string,
+    is_boolean = is_boolean
 }
