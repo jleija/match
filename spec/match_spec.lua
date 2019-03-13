@@ -53,7 +53,7 @@ describe("match", function()
         it("matches booleans", function()
             local pattern = {x=m.is_boolean}
             assert.is.truthy(m.match_root(pattern, {x=true})) 
-            assert.is.truthy(m.match_root(pattern, {x=false})) 
+            assert.is.same({x=false}, m.match_root(pattern, {x=false})) 
             assert.is_nil(m.match_root(pattern, {x="abc"})) 
         end)
         it("matches functions", function()
