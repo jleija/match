@@ -57,9 +57,37 @@ describe("match", function()
             assert.is_nil(m.match_root(pattern, {x="abc"})) 
         end)
     end)
+    it("can match tables by identity rather than by value", function()
+        local unique = {x=1}
+        local pattern = m.id(unique)
+        assert.is_nil(m.match_root(pattern, {x=1}))
+        assert.is.equal(unique, m.match_root(pattern, unique))
+    end)
     it("does not match if a custom match function returns nil", function()
         local pattern = {x=function(element) return element == 2 or nil end}
         assert.is_nil(m.match_root(pattern, {x=3})) 
+    end)
+    it("matches either value from a list", function()
+        local pattern = {x=1, y=m.either(3,2)}
+        assert.is.same({x=1,y=2}, m.match_root(pattern, {x=1,y=2})) 
+        assert.is.same({x=1,y=3}, m.match_root(pattern, {x=1,y=3})) 
+        assert.is_nil(m.match_root(pattern, {x=1,y=5})) 
+    end)
+    it("matches either value from a list, complex case with recursive match", function()
+        local pattern = {x=1, y=m.either({z="a"},2)}
+        assert.is.same({x=1,y={z="a"}}, m.match_root(pattern, {x=1,y={z="a"}})) 
+        assert.is.same({x=1,y=2}, m.match_root(pattern, {x=1,y=2})) 
+        assert.is_nil(m.match_root(pattern, {x=1,y={z="b"}})) 
+    end)
+    it("matches for optional values", function()
+        local pattern = {x=1, y=m.optional}
+        assert.is.same({x=1}, m.match_root(pattern, {x=1})) 
+        assert.is.same({x=1,y=2}, m.match_root(pattern, {x=1,y=2})) 
+    end)
+    it("matches and fills in the blanks with default values", function()
+        local pattern = {x=1, y=m.default_value(5)}
+        assert.is.same({x=1,y=5}, m.match_root(pattern, {x=1})) 
+        assert.is.same({x=1,y=2}, m.match_root(pattern, {x=1,y=2})) 
     end)
     it("matches if a custom match function returns a value other than nil", function()
         local pattern = {x=function(element) return element == 2 end}
@@ -287,6 +315,28 @@ describe("matcher", function()
             { 1, "one" }
         }
         assert.is_nil(matcher(2))
+    end)
+    it("should be able to test identitiy equality for tables", function()
+        local unique = {x=1}
+        local matcher = m.matcher{
+            { m.id(unique), true }
+        }
+        assert.is_nil(matcher({x=1}))
+        assert.is.truthy(matcher(unique))
+    end)
+    pending("Don't know how to test this: should ignore metamethods", function()
+        local matcher = m.matcher{
+            { 1, "one" }
+        }
+        local target = {
+            x = {1}
+        }
+        local mt = {
+            __index = function(t,k) return 0 end,
+            __newindex = function(t,k,v) return 1 end
+        }
+        setmetatable(target, mt)
+        assert.is_nil(matcher(target))
     end)
 
     it("errors out when trying to apply transform with unbounded variable with equally-named variable in match (two variable instances with same name)", function()

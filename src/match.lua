@@ -6,7 +6,7 @@ local function is_empty_table(t)
 end
 
 local function is_array(t)
-    return t[1] or is_empty_table(t)
+    return rawget(t,1) or is_empty_table(t)
 end
 
 local function is_number(x)
@@ -33,24 +33,40 @@ local function deepcompare(t1,t2,ignore_mt)
     local mt = getmetatable(t1)
     if not ignore_mt and mt and mt.__eq then return t1 == t2 end
     for k1,v1 in pairs(t1) do
-    local v2 = t2[k1]
+    local v2 = rawget(t2,k1)
     if v2 == nil or not deepcompare(v1,v2) then return false end
     end
     for k2,v2 in pairs(t2) do
-    local v1 = t1[k2]
+    local v1 = rawget(t1,k2)
     if v1 == nil or not deepcompare(v1,v2) then return false end
     end
     return true
 end
 
+local function id(v) return function(x) return v == x and v or nil end end
 local function value(v) return v end
+
+--local function default_value(default) 
+--    return function(x) return x ~= nil and x or default end 
+--end
+local default_values_to_promises = {}
+local default_promises = {}
+local function default_value(x) 
+    local default_promise = default_values_to_promises[x]
+    if default_promise then return default_promise end
+    default_promise = function() return x end
+    default_values_to_promises[x] = default_promise
+    default_promises[default_promise] = true
+    return default_promise
+end
+
 local function key(k) return k end
 local function tail(t, k)
     assert(is_array(t), "tail can be applied only to arrays")
     assert(type(k) == "number", "Invalid key: '" .. k .. "' of type " .. type(k))
     local res = {}
     for i=k,#t do
-        table.insert(res, t[i])
+        table.insert(res, rawget(t,i))
     end
     return res
 end
@@ -75,6 +91,7 @@ end
 local function tail_promise() end
 local function rest_promise() end
 local function nothing_promise() end
+local function optional() end
 
 local function var(var_name)
     local bound_value
@@ -105,7 +122,7 @@ local function match_root( pattern, target)
             if k == key then
                 return function(t, key_fn, value)
                     for k, v in pairs(t) do
-                        local res = match_root_recursive( value, t[k])
+                        local res = match_root_recursive( value, rawget(t,k))
                         if res ~= nil then 
                             return res, k 
                         end
@@ -131,6 +148,20 @@ local function match_root( pattern, target)
                     return nothing, k
                 end, k
             end
+            if v == optional then
+                if second_pass then
+                    return function(t, _, _)
+                        return nothing, k
+                    end, k
+                else
+                    return function(t, key, _)
+                        local v = rawget(t, key)
+                        if v ~= nil then return v, key end
+                        resolve_promises = true
+                        return optional, k
+                    end, k
+                end
+            end
             if v == tail and is_array(t) then
                 return function(t, _, _)
                     return tail(t, k), k
@@ -146,14 +177,22 @@ local function match_root( pattern, target)
                     return nothing(t, pattern), k
                 end, k
             end
-            if t[k] ~= nil then 
-                return function(t, k, v) return match_root_recursive( v, t[k]), k end, k
+            local value_promise = default_promises[v] 
+            if value_promise then
+                return function(t, _, _)
+                    local value = rawget(t, k)
+                    if value ~= nil then return value, k end
+                    return v(), k
+                end, k
+            end
+            if rawget(t,k) ~= nil then 
+                return function(t, k, v) return match_root_recursive( v, rawget(t,k)), k end, k
             else
                 return function() return nil, nil end, k
             end
         end
 
-        if target == pattern then return pattern end
+        if target == pattern then return target end
         if type(pattern) == "function" then
             local v, var = pattern(target)
             if var and (type(var) == "string" or type(var) == "number" or type(var) == "boolean") then
@@ -211,6 +250,19 @@ local function match_root( pattern, target)
     end
     
     return matched_table, captures, vars
+end
+
+local function either(...)
+    local options = {...}
+    return function(x)
+        for _, v in ipairs(options) do
+            local res = match_root(v, x)
+            if res ~= nil then
+                return res 
+            end
+        end
+        return nil
+    end
 end
 
 local function match(pattern, target, visited)
@@ -325,17 +377,22 @@ end
 return {
     key = key,
     value = value,
+    optional = optional,
+    default_value = default_value,
     head = value,
     rest = rest_promise,
     nothing = nothing_promise,
     tail = tail_promise,
     var = var,
+    v = var,
     match_root = match_root,
     match = match,
     match_all = match_all,
     matcher = matcher,
     iden = iden,
+    id = id,
     is_number = is_number,
     is_string = is_string,
-    is_boolean = is_boolean
+    is_boolean = is_boolean,
+    either = either
 }
