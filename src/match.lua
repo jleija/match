@@ -6,19 +6,28 @@ local function is_empty_table(t)
 end
 
 local function is_array(t)
-    return rawget(t,1) or is_empty_table(t)
+    return type(t) == "table" and (rawget(t,1) or is_empty_table(t)) and t or nil
 end
 
 local function is_number(x)
-    return type(x) == "number" or nil
+    return type(x) == "number" and x or nil
 end
 
 local function is_string(x)
-    return type(x) == "string" or nil
+    return type(x) == "string" and x or nil
 end
 
 local function is_boolean(x)
-    return type(x) == "boolean" or nil
+    if type(x) == "boolean" then return x end
+    return nil
+end
+
+local function is_function(x)
+    return type(x) == "function" and x or nil
+end
+
+local function is_table(x)
+    return type(x) == "table" and x or nil
 end
 
 -- deepcompare taken from: 
@@ -394,5 +403,8 @@ return {
     is_number = is_number,
     is_string = is_string,
     is_boolean = is_boolean,
+    is_function = is_function,
+    is_table = is_table,
+    is_array = is_array,
     either = either
 }

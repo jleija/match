@@ -56,6 +56,21 @@ describe("match", function()
             assert.is.truthy(m.match_root(pattern, {x=false})) 
             assert.is_nil(m.match_root(pattern, {x="abc"})) 
         end)
+        it("matches functions", function()
+            local pattern = {x=m.is_function}
+            assert.is.truthy(m.match_root(pattern, {x=function() end})) 
+            assert.is_nil(m.match_root(pattern, {x=3})) 
+        end)
+        it("matches tables", function()
+            local pattern = {x=m.is_table}
+            assert.is.truthy(m.match_root(pattern, {x={y=8}})) 
+            assert.is_nil(m.match_root(pattern, {x=3})) 
+        end)
+        it("matches arrays", function()
+            local pattern = {x=m.is_array}
+            assert.is.truthy(m.match_root(pattern, {x={"a"}})) 
+            assert.is_nil(m.match_root(pattern, {x=3})) 
+        end)
     end)
     it("can match tables by identity rather than by value", function()
         local unique = {x=1}
