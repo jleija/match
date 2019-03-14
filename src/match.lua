@@ -32,7 +32,7 @@ end
 
 local function is_like(regex)
     return function(x)
-        return type(x) == "string" and x:match(regex) or nil
+        return type(x) == "string" and x:match(regex) and x or nil
     end
 end
 

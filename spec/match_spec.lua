@@ -87,6 +87,9 @@ describe("match", function()
         assert.is_nil(m.match_root(pattern, {x=3})) 
         assert.is_nil(m.match_root(pattern, {x="abc"})) 
         assert.is_same({x="123"}, m.match_root(pattern, {x="123"})) 
+        assert.is_same({x="123abc"}, m.match_root(pattern, {x="123abc"})) 
+        local pattern = {x=m.is_like("^%d+$")}
+        assert.is_nil(m.match_root(pattern, {x="123abc"})) 
     end)
     it("matches either value from a list", function()
         local pattern = {x=1, y=m.either(3,2)}
