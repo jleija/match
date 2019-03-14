@@ -30,6 +30,12 @@ local function is_table(x)
     return type(x) == "table" and x or nil
 end
 
+local function is_like(regex)
+    return function(x)
+        return type(x) == "string" and x:match(regex) or nil
+    end
+end
+
 -- deepcompare taken from: 
 -- http://snippets.luacode.org/snippets/Deep_Comparison_of_Two_Values_3
 local function deepcompare(t1,t2,ignore_mt)
@@ -406,5 +412,6 @@ return {
     is_function = is_function,
     is_table = is_table,
     is_array = is_array,
+    is_like = is_like,
     either = either
 }

@@ -82,6 +82,12 @@ describe("match", function()
         local pattern = {x=function(element) return element == 2 or nil end}
         assert.is_nil(m.match_root(pattern, {x=3})) 
     end)
+    it("matches string patterns with like using a regex", function()
+        local pattern = {x=m.is_like("%d+")}
+        assert.is_nil(m.match_root(pattern, {x=3})) 
+        assert.is_nil(m.match_root(pattern, {x="abc"})) 
+        assert.is_same({x="123"}, m.match_root(pattern, {x="123"})) 
+    end)
     it("matches either value from a list", function()
         local pattern = {x=1, y=m.either(3,2)}
         assert.is.same({x=1,y=2}, m.match_root(pattern, {x=1,y=2})) 
