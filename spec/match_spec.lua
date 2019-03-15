@@ -296,9 +296,11 @@ end)
 
 describe("matcher", function()
     local X, A, B = m.var'x', m.var'a', m.var'b'
+    local unique_object = {}
     local matcher = m.matcher{
         { 1,                "one" },
-        { {"identity"},     m.iden },
+        { {"matched"},     m.matched_value },
+        { "unique",     m.as_is(unique_object) },
         { {x=X},            X},
         { {sum={a=m.var'a',b=m.var'b'}},  function(captures) return captures.a + captures.b end },
         { {sum={m.var(1),m.var(2)}},      function(captures) return captures[1] + captures[2] end },
@@ -306,8 +308,11 @@ describe("matcher", function()
         { {v={a=A, b=B}},        {pp=A, qq={b=B}, {[A]=B}}},
         { m.value,          "catch-all value" },
     }
-    it("applies identity transform", function()
-        assert.is.same({"identity"}, matcher({"identity"}))
+    it("applies matched value transform", function()
+        assert.is.same({"matched"}, matcher({"matched"}))
+    end)
+    it("leaves matched result as_is", function()
+        assert.is.equal(unique_object, matcher("unique"))
     end)
     it("applies variable bound value transformation", function()
         assert.is.equal(3, matcher({x=3}))

@@ -331,7 +331,7 @@ local is_const_transform_type = {
     boolean = true
 }
 
-local function iden() end
+local function matched_value() end
 
 local function eval_function_or_var(transform, captures, vars, n)
     local v, maybe_var_name = transform(captures)
@@ -362,8 +362,14 @@ local function apply_vars(t, vars)
     return res
 end
 
+local function as_is(value)
+    return function() return value end
+end
+
 local function apply_match(transform, matched, captures, vars, n)
-    if transform == iden then
+    if transform == as_is then
+        return transform
+    elseif transform == matched_value then
         return matched
     elseif vars[transform] then
         return transform()
@@ -404,7 +410,8 @@ return {
     match = match,
     match_all = match_all,
     matcher = matcher,
-    iden = iden,
+    matched_value = matched_value,
+    as_is = as_is,
     id = id,
     is_number = is_number,
     is_string = is_string,
