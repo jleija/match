@@ -299,6 +299,22 @@ local function match(pattern, target, visited)
     return nil, {}, {}
 end
 
+local function collect(pattern, target)
+    local res, captures, vars = match(pattern, target)
+    if res then
+        local values = {}
+        for v, i in pairs(vars) do
+            values[i] = v()
+        end
+        if is_array(values) then
+            return unpack(values)
+        else
+            return values
+        end
+    end
+    return nil
+end
+
 local function match_all(pattern, target, visited)
     local capture_array = {}
     local var_array = {}
@@ -408,6 +424,7 @@ return {
     v = var,
     match_root = match_root,
     match = match,
+    collect = collect,
     match_all = match_all,
     matcher = matcher,
     matched_value = matched_value,
