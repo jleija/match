@@ -305,12 +305,15 @@ describe("match", function()
 end)
 
 describe("matcher", function()
-    local X, A, B = m.var'x', m.var'a', m.var'b'
+    local function is_even(x) return x % 2 == 0 end
+
+    local X, A, B, Even = m.var'x', m.var'a', m.var'b', m.var('even', is_even)
     local unique_object = {}
     local matcher = m.matcher{
         { 1,                "one" },
         { {"matched"},     m.matched_value },
         { "unique",     m.as_is(unique_object) },
+        { {even = Even}, Even },
         { {x=X},            X},
         { {sum={a=m.var'a',b=m.var'b'}},  function(captures) return captures.a + captures.b end },
         { {sum={m.var(1),m.var(2)}},      function(captures) return captures[1] + captures[2] end },
@@ -326,6 +329,12 @@ describe("matcher", function()
     end)
     it("applies variable bound value transformation", function()
         assert.is.equal(3, matcher({x=3}))
+    end)
+    it("matches and captures #conditional variables (variables with a predicate)", function()
+        assert.is.equal("catch-all value", matcher({even=3}))
+        assert.is_nil(Even())
+        assert.is.equal(4, matcher({even=4}))
+        assert.is.equal(4, Even())
     end)
     it("applies matching const transform", function()
         assert.is.equal("one", matcher(1))

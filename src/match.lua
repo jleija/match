@@ -108,13 +108,16 @@ local function rest_promise() end
 local function nothing_promise() end
 local function optional() end
 
-local function var(var_name)
+local function var(var_name, predicate)
     local bound_value
     return function(value)
         if value == nil then
             return bound_value, var_name
         end
---        if bound_value == nil then    -- sticky bound of updatable?
+        if predicate and not predicate(value) then
+            return nil, nil
+        end
+--        if bound_value == nil then    -- sticky bound or updatable?
             bound_value = value
 --        end
         return value, var_name
