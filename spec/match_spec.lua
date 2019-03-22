@@ -271,6 +271,13 @@ describe("match", function()
             assert.is_nil(matched)
             assert.is.same({}, captures)
         end)
+        it("finds an element in an array returning its index in a variable", function()
+            local Index = m.var'index'
+
+            assert.is.truthy(m.match({[Index] = "b"}, {"a", "b", "c"}))
+
+            assert.is.equal(2, Index())
+        end)
         it("can retrieve the variables after their use (needed for pattern dispatch)", function()
             local X, Y = m.var'x', m.var'y'
             local matched, captures, vars = m.match({X, Y}, {1, 2})

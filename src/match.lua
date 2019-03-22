@@ -148,6 +148,19 @@ local function match_root( pattern, target)
                     return nil
                 end, k
             end
+            if type(k) == "function" then
+                local maybe_key_var = k
+                return function(t, key_fn, value)
+                    for k, v in pairs(t) do
+                        local res = match_root_recursive( value, rawget(t,k))
+                        if res ~= nil then 
+                            maybe_key_var(k)
+                            return res, k 
+                        end
+                    end
+                    return nil
+                end, k
+            end
             if v == tail_promise and is_array(t) then
                 resolve_promises = true
                 return function(t, _, _)
