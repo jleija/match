@@ -315,7 +315,7 @@ local function match(pattern, target, visited)
     return nil, {}, {}
 end
 
-local function collect(pattern, target)
+local function find(pattern, target)
     local res, captures, vars = match(pattern, target)
     if res then
         local values = {}
@@ -440,7 +440,7 @@ return {
     v = var,
     match_root = match_root,
     match = match,
-    collect = collect,
+    find = find,
     match_all = match_all,
     matcher = matcher,
     matched_value = matched_value,
