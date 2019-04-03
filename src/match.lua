@@ -5,8 +5,26 @@ local function is_empty_table(t)
     return true
 end
 
+local function table_size(t)
+    local len = 0
+    for _, _ in pairs(t) do
+        len = len + 1
+    end
+    return len
+end
+
 local function is_array(t)
-    return type(t) == "table" and (rawget(t,1) or is_empty_table(t)) and t or nil
+    if type(t) ~= "table" then
+        return nil
+    end
+
+    local size = table_size(t)
+    for i=1,size do
+        if rawget(t,i) == nil then
+            return nil
+        end
+    end
+    return t
 end
 
 local function is_number(x)
@@ -385,7 +403,12 @@ local is_const_transform_type = {
 local function matched_value() end
 
 local function eval_function_or_var(transform, captures, vars, n)
-    local v, var_name, maybe_var_proof = transform(captures)
+    local v, var_name, maybe_var_proof 
+    if is_array(captures) then
+        v, var_name, maybe_var_proof = transform(unpack(captures))
+    else
+        v, var_name, maybe_var_proof = transform(captures)
+    end
     if maybe_var_proof == var_proof 
         and (type(var_name) == "string" 
                 or type(var_name) == "number" 

@@ -316,6 +316,7 @@ end)
 
 describe("matcher", function()
     local function is_even(x) return x % 2 == 0 end
+    local function f(x) end
 
     local V = m.vars()
     local unique_object = {}
@@ -325,11 +326,13 @@ describe("matcher", function()
         { "unique",                   m.as_is(unique_object) },
         { {even = V('n', is_even)},   V.n },      -- conditional variables
         { {x=V.x},                    V.x},
-        { {sum={a=V.a,b=V.b}},        function(captures) return captures.a + captures.b end },
-        { {sum={V[1],V[2]}},          function(captures) return captures[1] + captures[2] end },
+        { {sum={a=V.a,b=V.b}},        function(vars) return vars.a + vars.b end },
+                                      -- unpacked positional variables
+        { {div={V[1],V[2]}},          function(a, b) return a / b end },
         { {v={V.a, V.b}},             {p=V.a, q=V.b}},
         { {v={a=V.a, b=V.b}},         {pp=V.a, qq={b=V.b}, {[V.a]=V.b}}},
         { {V=V.x},                    {X=V.x} },
+        { {F=V.x},                    m.as_is(f) },
         { m.value,                    "catch-all value" },
     }
     it("applies matched value transform", function()
@@ -337,6 +340,9 @@ describe("matcher", function()
     end)
     it("leaves matched result as_is", function()
         assert.is.equal(unique_object, matcher("unique"))
+    end)
+    it("avoids calling functions automatically with as_is", function()
+        assert.is.equal(f, matcher({F=3}))
     end)
     it("applies variable bound value transformation", function()
         assert.is.equal(3, matcher({x=3}))
@@ -353,7 +359,9 @@ describe("matcher", function()
     end)
     it("applies matching custom function transform with captures", function()
         assert.is.equal(5, matcher{sum={a=2,b=3}})
-        assert.is.equal(7, matcher{sum={3,4}})
+    end)
+    it("applies matching custom function transform with unpacked positional numeric variables", function()
+        assert.is.equal(2, matcher{div={10,5}})
     end)
     it("applies variable substitution in transform table", function()
         assert.is.same({p=2,q=3}, matcher{v={2,3}})
@@ -361,9 +369,9 @@ describe("matcher", function()
     it("applies multiple variable substitution (key and value) in transform table", function()
         assert.is.same({pp='x',qq={b='y'}, {x='y'}}, matcher{v={a='x',b='y'}})
     end)
-    it("does variable binding", function()
-        assert.is.same({X = 5}, matcher{V = 5})
-        assert.is.same({X = "a"}, matcher{V = "a"})
+    it("Rebinds variables accross repeated calls", function()
+        assert.is.same({X=5}, matcher{V=5})
+        assert.is.same({X="a"}, matcher{V="a"})
     end)
     it("should not match a non-root pattern", function()
         assert.is.equal("catch-all value", matcher({y={x=1}}))
