@@ -162,9 +162,15 @@ describe("match", function()
         local either = m.match( {y=m.value}, a)
         assert.is.truthy(either.y == 1 or either.y == 2)
 
+        -- note the "or nil" return value. This is to prevent a "false" value
+        -- to be taken as a successful match (only nil values in predicates
+        -- count as failing match
         assert.is.same({x = {y = 2}}, 
                        m.match( 
-                       { x = { y = function(x) return (x > 1) and x end}}, a))
+                       { x = { y = function(x) return (x > 1) and x or nil end}}, a))
+        assert.is.same({x = {y = 2}}, 
+                       m.match( 
+                       { x = { y = function(x) return (x > 1) and x or nil end}}, b))
     end)
     it("matches key and sub-table", function()
         local target = {a={b={x={y=1}, z={y=2}}}}
