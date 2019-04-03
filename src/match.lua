@@ -108,6 +108,8 @@ local function rest_promise() end
 local function nothing_promise() end
 local function optional() end
 
+local var_proof = {}        -- unique value to recognize variable functions
+
 local function var(var_name, predicate)
     local bound_value
     return function(value)
@@ -120,8 +122,26 @@ local function var(var_name, predicate)
 --        if bound_value == nil then    -- sticky bound or updatable?
             bound_value = value
 --        end
-        return value, var_name
+        return value, var_name, var_proof
     end
+end
+
+local function vars()
+    local vs = {}
+    local mt = {
+        __index = function(t, k)
+            v = var(k)
+            vs[k] = v
+            return v
+        end,
+        __call = function(t, var_name, predicate)
+            local v = var(var_name, predicate)
+            vs[var_name] = v
+            return v
+        end
+    }
+    setmetatable(vs, mt)
+    return vs
 end
 
 local function match_empties(a, b)
@@ -225,16 +245,15 @@ local function match_root( pattern, target)
 
         if target == pattern then return target end
         if type(pattern) == "function" then
-            local v, var = pattern(target)
-            if var and (type(var) == "string" or type(var) == "number" or type(var) == "boolean") then
-                if captures[var] ~= nil and not deepcompare(v, captures[var]) then
+            local v, var_name, maybe_var_proof = pattern(target)
+            if maybe_var_proof == var_proof 
+                    and ( type(var_name) == "string" or type(var_name) == "number" 
+                        or type(var_name) == "boolean") then
+                if captures[var_name] ~= nil and not deepcompare(v, captures[var_name]) then
                     return nil
                 end
-                captures[var] = v
---                if v ~= pattern() then -- fail on diff sticky bounded value?
---                    return nil
---                end
-                vars[pattern] = var
+                captures[var_name] = v
+                vars[pattern] = var_name
             end
             return v
         end
@@ -366,13 +385,17 @@ local is_const_transform_type = {
 local function matched_value() end
 
 local function eval_function_or_var(transform, captures, vars, n)
-    local v, maybe_var_name = transform(captures)
-    if maybe_var_name ~= nil and type(maybe_var_name) == "string" then
-        for f, var_name in pairs(vars) do
-            if var_name == maybe_var_name then
-                error("Possibly trying to apply an unbound variable with same name as bound variable '" .. var_name .. "': Make sure to use the same instance of var in the match and its transform (#" .. n .. ")")
+    local v, var_name, maybe_var_proof = transform(captures)
+    if maybe_var_proof == var_proof 
+        and (type(var_name) == "string" 
+                or type(var_name) == "number" 
+                or type(var_name) == "boolean") then
+        for f, name in pairs(vars) do
+            if name == var_name then
+                error("Possibly trying to apply an unbound variable with same name as bound variable '" .. name .. "': Make sure to use the same instance of var in the match and its transform (#" .. n .. ")")
             end
         end
+        error("Trying to apply unbound variable '" .. var_name .. "'")
     end
     return v
 end
@@ -436,8 +459,7 @@ return {
     rest = rest_promise,
     nothing = nothing_promise,
     tail = tail_promise,
-    var = var,
-    v = var,
+    vars = vars,
     match_root = match_root,
     match = match,
     find = find,

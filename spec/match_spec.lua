@@ -226,60 +226,59 @@ describe("match", function()
         end)
     end)
     describe("variable capture", function()
+        local V = m.vars()
         it("captures a variable by name", function()
-            local matched, captures = m.match({x=m.var'v'}, {a={3,{x=88}}})
+            local matched, captures = m.match({x=V.v}, {a={3,{x=88}}})
             assert.is.truthy(matched)
             assert.is.equal(88, captures.v)
         end)
         it("captures multiple variables by name", function()
-            local matched, captures = m.match({x=m.var'x',y=m.var'y'}, 
+            local matched, captures = m.match({x=V.x,y=V.y}, 
                                                 {a={3,{x=88,y=77}}})
             assert.is.truthy(matched)
             assert.is.equal(88, captures.x)
             assert.is.equal(77, captures.y)
         end)
         it("captures variables by index", function()
-            local matched, captures = m.match({x=m.var(1)}, {a={3,{x=88}}})
+            local matched, captures = m.match({x=V[1]}, {a={3,{x=88}}})
             assert.is.truthy(matched)
             assert.is.equal(88, captures[1])
         end)
         it("captures arrays of variables when matching all", function()
-            local matched, captures = m.match_all({x=m.var(1),y=m.var(2)}, 
+            local matched, captures = m.match_all({x=V[1],y=V[2]}, 
                                                 {{x=1,y=2},{x=10,y=20}})
             assert.is.truthy(matched)
             assert.is.same({{1,2},{10,20}}, captures)
         end)
         it("enforces match of previously captured variables", function()
-            local matched, captures = m.match({m.var(1),m.var(2),m.var(1)},
+            local matched, captures = m.match({V[1],V[2],V[1]},
                                                 {1,2,1})
             assert.is.truthy(matched)
             assert.is.same({1,2}, captures)
 
-            local matched, captures = m.match({m.var(1),m.var(2),m.var(1)},
+            local matched, captures = m.match({V[1],V[2],V[1]},
                                                 {1,2,3})
             assert.is_nil(matched)
             assert.is.same({}, captures)
         end)
         it("uses table match for previously captured variables", function()
-            local matched, captures = m.match({m.var(1),m.var(2),m.var(1)},
+            local matched, captures = m.match({V[1],V[2],V[1]},
                                                 {{1,2},{5},{1,2}})
             assert.is.truthy(matched)
             assert.is.same({{1,2},{5}}, captures)
 
-            local matched, captures = m.match({m.var(1),m.var(2),m.var(1)},
+            local matched, captures = m.match({V[1],V[2],V[1]},
                                                 {{1,2},{5},{1,3}})
             assert.is_nil(matched)
             assert.is.same({}, captures)
         end)
         it("finds an element in an array returning its index in a variable", function()
-            local Index = m.var'index'
+            assert.is.truthy(m.match({[V.index] = "b"}, {"a", "b", "c"}))
 
-            assert.is.truthy(m.match({[Index] = "b"}, {"a", "b", "c"}))
-
-            assert.is.equal(2, Index())
+            assert.is.equal(2, V.index())
         end)
         it("can retrieve the variables after their use (needed for pattern dispatch)", function()
-            local X, Y = m.var'x', m.var'y'
+            local X, Y = V.x, V.y
             local matched, captures, vars = m.match({X, Y}, {1, 2})
             assert.is.equal('x', vars[X])
             assert.is.equal('y', vars[Y])
@@ -287,28 +286,28 @@ describe("match", function()
             assert.is.equal(2, Y())
         end)
         it("keeps the last variable matched value in vars when a match_all is performed", function()
-            local X = m.var'x'
+            local X = V.x
             local matched, captures, vars = m.match_all(X, {1, 1, 1})
             assert.is.same({1,1,1}, matched)
             assert.is.equal(1, X())
 
-            local X = m.var'x'
+            local X = V.x
             local matched, captures, vars = m.match_all(X, {1, 1, 2})
             assert.is.truthy(matched)
             assert.is.same({1,1,2}, matched)
             assert.is.equal(2, X())     -- last value
         end)
         it("fails to find when there are no matches", function()
-            local z = m.find({z=m.var(1)}, {{a=8,x=3,y=4}})
+            local z = m.find({z=V[1]}, {{a=8,x=3,y=4}})
             assert.is_nil(z)
         end)
         it("can find and return multiple matched variables for convenience of extraction", function()
-            local y, x = m.find({x=m.var(2), y=m.var(1)}, {{a=8,x=3,y=4}})
+            local y, x = m.find({x=V[2], y=V[1]}, {{a=8,x=3,y=4}})
             assert.is.equal(4, y)
             assert.is.equal(3, x)
         end)
         it("can find and return a table of matched variables for convenience of extraction", function()
-            local vars = m.find({x=m.var'x', y=m.var'y'}, {{a=8,x=3,y=4}})
+            local vars = m.find({x=V.x, y=V.y}, {{a=8,x=3,y=4}})
             assert.is.equal(4, vars.y)
             assert.is.equal(3, vars.x)
         end)
@@ -318,19 +317,20 @@ end)
 describe("matcher", function()
     local function is_even(x) return x % 2 == 0 end
 
-    local X, A, B, Even = m.var'x', m.var'a', m.var'b', m.var('even', is_even)
+    local V = m.vars()
     local unique_object = {}
     local matcher = m.matcher{
-        { 1,                "one" },
-        { {"matched"},     m.matched_value },
-        { "unique",     m.as_is(unique_object) },
-        { {even = Even}, Even },
-        { {x=X},            X},
-        { {sum={a=m.var'a',b=m.var'b'}},  function(captures) return captures.a + captures.b end },
-        { {sum={m.var(1),m.var(2)}},      function(captures) return captures[1] + captures[2] end },
-        { {v={A, B}},        {p=A, q=B}},
-        { {v={a=A, b=B}},        {pp=A, qq={b=B}, {[A]=B}}},
-        { m.value,          "catch-all value" },
+        { 1,                          "one" },
+        { {"matched"},                m.matched_value },
+        { "unique",                   m.as_is(unique_object) },
+        { {even = V('n', is_even)},   V.n },      -- conditional variables
+        { {x=V.x},                    V.x},
+        { {sum={a=V.a,b=V.b}},        function(captures) return captures.a + captures.b end },
+        { {sum={V[1],V[2]}},          function(captures) return captures[1] + captures[2] end },
+        { {v={V.a, V.b}},             {p=V.a, q=V.b}},
+        { {v={a=V.a, b=V.b}},         {pp=V.a, qq={b=V.b}, {[V.a]=V.b}}},
+        { {V=V.x},                    {X=V.x} },
+        { m.value,                    "catch-all value" },
     }
     it("applies matched value transform", function()
         assert.is.same({"matched"}, matcher({"matched"}))
@@ -343,9 +343,9 @@ describe("matcher", function()
     end)
     it("matches and captures conditional variables (variables with a predicate)", function()
         assert.is.equal("catch-all value", matcher({even=3}))
-        assert.is_nil(Even())
+        assert.is_nil(V.n())
         assert.is.equal(4, matcher({even=4}))
-        assert.is.equal(4, Even())
+        assert.is.equal(4, V.n())
     end)
     it("applies matching const transform", function()
         assert.is.equal("one", matcher(1))
@@ -360,6 +360,10 @@ describe("matcher", function()
     end)
     it("applies multiple variable substitution (key and value) in transform table", function()
         assert.is.same({pp='x',qq={b='y'}, {x='y'}}, matcher{v={a='x',b='y'}})
+    end)
+    it("does variable binding", function()
+        assert.is.same({X = 5}, matcher{V = 5})
+        assert.is.same({X = "a"}, matcher{V = "a"})
     end)
     it("should not match a non-root pattern", function()
         assert.is.equal("catch-all value", matcher({y={x=1}}))
@@ -398,9 +402,19 @@ describe("matcher", function()
         assert.is_nil(matcher(target))
     end)
 
-    it("errors out when trying to apply transform with unbounded variable with equally-named variable in match (two variable instances with same name)", function()
+    it("errors out when trying to reference a variable that hasn't been bound", function()
+        local var_scope = m.vars()
         local matcher = m.matcher{
-            { {x=m.var'x'}, m.var'x' }
+            { {x=var_scope.x}, var_scope.y }
+        }
+        assert.is.error(function() matcher({x=3}) end, 
+            "Trying to apply unbound variable 'y'")
+    end)
+    it("errors out when trying to apply transform with unbounded variable with equally-named variable in match (two variable instances with same name)", function()
+        local var_scope_a = m.vars()
+        local var_scope_b = m.vars()
+        local matcher = m.matcher{
+            { {x=var_scope_a.x}, var_scope_b.x }
         }
         assert.is.error(function() matcher({x=3}) end, 
             "Possibly trying to apply an unbound variable with same name as bound variable 'x': Make sure to use the same instance of var in the match and its transform (#1)")
