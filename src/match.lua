@@ -148,7 +148,7 @@ local function vars()
     local vs = {}
     local mt = {
         __index = function(t, k)
-            v = var(k)
+            local v = var(k)
             vs[k] = v
             return v
         end,
