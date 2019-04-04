@@ -125,6 +125,7 @@ local function tail_promise() end
 local function rest_promise() end
 local function nothing_promise() end
 local function optional() end
+local function missing() end
 
 local var_proof = {}        -- unique value to recognize variable functions
 
@@ -231,6 +232,13 @@ local function match_root( pattern, target)
                     end, k
                 end
             end
+            if v == missing then
+                return function(t, key, _)
+                    local v = rawget(t, key)
+                    if v == nil then return missing, key end
+                    return nil, k
+                end, k
+            end
             if v == tail and is_array(t) then
                 return function(t, _, _)
                     return tail(t, k), k
@@ -287,13 +295,14 @@ local function match_root( pattern, target)
                 local matcher, key = key_in_table(target, k, v)
                 if key ~= nil then
                     local match_result, matched_k, splat = matcher(target, key, v)
-                    if match_result ~= nil then
+                    if match_result ~= nil or match_result == missing then
                         if splat then
                             for k, v in pairs(match_result) do
                                 matches[k] = v
                             end
                         else
-                            if not second_pass or match_result ~= nothing then
+                            if (not second_pass or match_result ~= nothing)
+                                and match_result ~= missing then
                                 matches[matched_k] = match_result
                             end
                         end
@@ -477,6 +486,7 @@ return {
     key = key,
     value = value,
     optional = optional,
+    missing = missing,
     default_value = default_value,
     head = value,
     rest = rest_promise,
