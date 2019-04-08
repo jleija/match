@@ -461,7 +461,11 @@ local function apply_match(transform, matched, captures, vars, n)
     elseif vars[transform] then
         return transform()
     elseif type(transform) == "function" then
-        return eval_function_or_var(transform, captures, vars, n)
+        if is_empty_table(captures) then
+            return transform(matched)
+        else
+            return eval_function_or_var(transform, captures, vars, n)
+        end
     elseif is_const_transform_type[type(transform)] then
         return transform
     elseif type(transform) == "table" then

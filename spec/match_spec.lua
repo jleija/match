@@ -331,6 +331,10 @@ end)
 describe("matcher", function()
     local function is_even(x) return x % 2 == 0 end
     local function f(x) end
+    local function receive_match(matched_set)
+        matched_set.id = 32
+        return matched_set
+    end
 
     local V = m.vars()
     local unique_object = {}
@@ -347,6 +351,7 @@ describe("matcher", function()
         { {v={a=V.a, b=V.b}},         {pp=V.a, qq={b=V.b}, {[V.a]=V.b}}},
         { {V=V.x},                    {X=V.x} },
         { {F=V.x},                    m.as_is(f) },
+        { {a=1,b=2},                  receive_match },
         { m.value,                    "catch-all value" },
     }
     it("applies matched value transform", function()
@@ -370,6 +375,9 @@ describe("matcher", function()
     it("applies matching const transform", function()
         assert.is.equal("one", matcher(1))
         assert.is.equal("catch-all value", matcher(5))
+    end)
+    it("applies matching custom function transform with whole matched set", function()
+        assert.is.same({id=32,a=1,b=2}, matcher{a=1,b=2,z=3})
     end)
     it("applies matching custom function transform with captures", function()
         assert.is.equal(5, matcher{sum={a=2,b=3}})
@@ -409,20 +417,20 @@ describe("matcher", function()
         assert.is_nil(matcher({x=1}))
         assert.is.truthy(matcher(unique))
     end)
-    pending("Don't know how to test this: should ignore metamethods", function()
-        local matcher = m.matcher{
-            { 1, "one" }
-        }
-        local target = {
-            x = {1}
-        }
-        local mt = {
-            __index = function(t,k) return 0 end,
-            __newindex = function(t,k,v) return 1 end
-        }
-        setmetatable(target, mt)
-        assert.is_nil(matcher(target))
-    end)
+--    it("Don't know how to test this: should ignore metamethods", function()
+--        local matcher = m.matcher{
+--            { 1, "one" }
+--        }
+--        local target = {
+--            x = {1}
+--        }
+--        local mt = {
+--            __index = function(t,k) return 0 end,
+--            __newindex = function(t,k,v) return 1 end
+--        }
+--        setmetatable(target, mt)
+--        assert.is_nil(matcher(target))
+--    end)
 
     it("errors out when trying to reference a variable that hasn't been bound", function()
         local var_scope = m.vars()
