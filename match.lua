@@ -480,7 +480,7 @@ local function matcher(match_pairs)
         for i, match_pair in ipairs(match_pairs) do
             local matched, captures, vars = match_root(match_pair[1], target)
             if matched ~= nil then
-                return apply_match(match_pair[2], matched, captures, vars, i)
+                return apply_match(match_pair[2], matched, captures, vars, i), matched
             end
         end
     end
@@ -499,6 +499,7 @@ return {
     vars = vars,
     match_root = match_root,
     match = match,
+    apply_vars = apply_vars,
     find = find,
     match_all = match_all,
     matcher = matcher,
