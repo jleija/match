@@ -22,8 +22,16 @@ describe("match-refine", function()
         local function double_x(set) return set.x * 2 end
         local refiner = mr.match_refine{
             { {"x"}, { double_x } },
-            { {"a", "b"}, { { x = sum }, mr.refine{} } },
+            { {"a", "b"}, { { x = sum }, mr.refine } },
         }
         assert.is.equal( 10, refiner{a=2, b=3})
+    end)
+    it("can reference variables in projections", function()
+        local function double_x(set) return set.x * 2 end
+        local refiner = mr.match_refine{
+            { {"x"}, { double_x } },
+            { {"a", "b"}, { { x = mr.vars.a }, mr.refine } },
+        }
+        assert.is.equal( 4, refiner{a=2, b=3})
     end)
 end)
