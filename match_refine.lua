@@ -23,12 +23,13 @@ local function match_refine(abbreviated_rules)
     local rules = {}
     for _, abbreviated_rule in ipairs(abbreviated_rules) do
         local rule_pattern = {}
-        for _, abbreviated_var in ipairs(abbreviated_rule[1]) do
+        local pattern = abbreviated_rule[1]
+        for _, abbreviated_var in ipairs(pattern) do
             assert(type(abbreviated_var) == "string", "Only abbreviate keys")
             rule_pattern[abbreviated_var] = refine_vars[abbreviated_var]
         end
-        for k, v in pairs(abbreviated_rule) do
-            if type(k) ~= "number" or k > #abbreviated_rule then
+        for k, v in pairs(pattern) do
+            if type(k) ~= "number" or k > #pattern then
                 rule_pattern[k] = v
             end
         end
@@ -57,19 +58,33 @@ local function match_refine(abbreviated_rules)
         return projection
     end
 
-    local function concrete_match_refine(target)
+    local function match_refine_for_given_rules(target)
+--        print("target")
+--        mm(target)
         for _, rule in ipairs(rules) do
             local pattern = rule[1]
+--            print("maching rule")
+--            mm(pattern)
             local refine_plan, initial_set = matcher(target)
+--            print("init")
+--            mm(initial_set)
             if refine_plan then
+                if not m.is_array(refine_plan) then
+--                    print("returnincg verbatim table")
+--                    mm(refine_plan)
+                    return refine_plan
+                end
                 local ongoing_projection = initial_set
                 for _, transform in ipairs(refine_plan) do
                     if type(transform) == "table" then
+--                        print("table")
+--                        mm(transform)
                         ongoing_projection = project_and_roll(transform, ongoing_projection)
                     elseif type(transform) == "function" then
                         if transform == refine then
                             -- maybe roll ongoing_projection here
-                            ongoing_projection = concrete_match_refine(ongoing_projection)
+                            ongoing_projection = match_refine_for_given_rules(ongoing_projection)
+--                            mm(ongoing_projection)
                         else
                             ongoing_projection = transform(ongoing_projection)
                         end
@@ -83,7 +98,7 @@ local function match_refine(abbreviated_rules)
         return nil
     end
 
-    return concrete_match_refine, refine_vars
+    return match_refine_for_given_rules, refine_vars
 end
 
 return {
