@@ -204,9 +204,10 @@ describe("match", function()
                         m.match( {z=3, m.rest}, {a={x=1, y=2, z=3}, b={1,2}}))
     end)
     it("can do an exact/complete match with nothing extra", function()
-        assert.is.same({1,2}, m.match({1,2,m.nothing},{1,2}))
-        assert.is_nil(m.match({1,2,m.nothing},{1,2,3}))
+        assert.is.same({1,2}, m.match({1,2,m.nothing_else},{1,2}))
+        assert.is_nil(m.match({1,2,m.nothing_else},{1,2,3}))
 
+        -- nothing_else is the same as nothing
         assert.is.same({x=1,y=2}, m.match({x=m.value,y=m.value,m.nothing},{x=1,y=2}))
         assert.is.same({x=1,y=2}, m.match({x=m.value,[m.key]=2,m.nothing},{x=1,y=2}))
         assert.is_nil(m.match({x=1,y=2,m.nothing},{x=1,y=2,z=3}))
@@ -352,7 +353,7 @@ describe("matcher", function()
         { {V=V.x},                    {X=V.x} },
         { {F=V.x},                    m.as_is(f) },
         { {a=1,b=2},                  receive_match },
-        { m.value,                    "catch-all value" },
+        { m.otherwise,                "catch-all value" },
     }
     it("applies matched value transform", function()
         assert.is.same({"matched"}, matcher({"matched"}))

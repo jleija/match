@@ -1,4 +1,5 @@
 local mr = require("match_refine")
+local m = require("match")
 
 describe("match-refine", function()
     it("rolls constant projections", function()
@@ -68,5 +69,28 @@ describe("match-refine", function()
             { {"a", "b"}, { { x = mr.vars.a }, mr.refine } },
         }
         assert.is.equal( 4, refiner{a=2, b=3})
+    end)
+    it("allows for a default clause", function()
+        local refiner = mr.match_refine{
+            { {"a", "b"}, { "not this one" } },
+            { m.otherwise,             { 1 } }
+        }
+        assert.is.same( 1, refiner{x="value x"})
+    end)
+    it("allows for simple matcher clauses", function()
+        local refiner = mr.match_refine{
+            { 1, "one" },
+            { 2, "two" },
+        }
+        assert.is.same( "two", refiner(2))
+    end)
+    it("allows for a single, stand-alone, consequent function (no need for array consequent)", function()
+        local function sum(set) return set.a + set.b end
+        local refiner = mr.match_refine{
+            { {"a", "b"}, sum },
+            { {"x", "y"}, { {a=mr.vars.x, b=mr.vars.y}, sum } },
+        }
+        assert.is.same( 3, refiner{a=1, b=2})
+        assert.is.same( 3, refiner{x=1, y=2})
     end)
 end)

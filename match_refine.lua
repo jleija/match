@@ -1,5 +1,4 @@
 local m = require("match")
-local mm = require'mm'
 
 local refinement = {}
 
@@ -24,16 +23,20 @@ local function match_refine(abbreviated_rules)
     for _, abbreviated_rule in ipairs(abbreviated_rules) do
         local rule_pattern = {}
         local pattern = abbreviated_rule[1]
-        for _, abbreviated_var in ipairs(pattern) do
-            assert(type(abbreviated_var) == "string", "Only abbreviate keys")
-            rule_pattern[abbreviated_var] = refine_vars[abbreviated_var]
-        end
-        for k, v in pairs(pattern) do
-            if type(k) ~= "number" or k > #pattern then
-                rule_pattern[k] = v
+        if m.is_array(pattern) then
+            for _, abbreviated_var in ipairs(pattern) do
+                assert(type(abbreviated_var) == "string", "Only abbreviate string/named keys")
+                rule_pattern[abbreviated_var] = refine_vars[abbreviated_var]
             end
+            for k, v in pairs(pattern) do
+                if type(k) ~= "number" or k > #pattern then
+                    rule_pattern[k] = v
+                end
+            end
+            table.insert(rules, { rule_pattern, abbreviated_rule[2] })
+        else
+            table.insert(rules, abbreviated_rule)
         end
-        table.insert(rules, { rule_pattern, abbreviated_rule[2] })
     end
     local matcher = m.matcher(rules)
 
@@ -59,32 +62,21 @@ local function match_refine(abbreviated_rules)
     end
 
     local function match_refine_for_given_rules(target)
---        print("target")
---        mm(target)
         for _, rule in ipairs(rules) do
             local pattern = rule[1]
---            print("maching rule")
---            mm(pattern)
             local refine_plan, initial_set = matcher(target)
---            print("init")
---            mm(initial_set)
             if refine_plan then
                 if not m.is_array(refine_plan) then
---                    print("returnincg verbatim table")
---                    mm(refine_plan)
                     return refine_plan
                 end
                 local ongoing_projection = initial_set
                 for _, transform in ipairs(refine_plan) do
                     if type(transform) == "table" then
---                        print("table")
---                        mm(transform)
                         ongoing_projection = project_and_roll(transform, ongoing_projection)
                     elseif type(transform) == "function" then
                         if transform == refine then
                             -- maybe roll ongoing_projection here
                             ongoing_projection = match_refine_for_given_rules(ongoing_projection)
---                            mm(ongoing_projection)
                         else
                             ongoing_projection = transform(ongoing_projection)
                         end
