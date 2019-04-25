@@ -5,15 +5,22 @@ local refinement = {}
 local var_key = {}
 local vars = {}
 
-local mt = {
-    __index = function(t, k)
-        return {
-            [var_key] = k
-        }
-    end
-}
+local vars_mt = {}
 
-setmetatable(vars, mt)
+vars_mt.__index = function(t, k)
+    if rawget(t, var_key) then
+        t.subkeys = rawget(t, 'subkeys') or {}
+        table.insert(t.subkeys, k)
+        return t
+    end
+    local var_proxy = {
+        [var_key] = k
+    }
+    setmetatable(var_proxy, vars_mt)
+    return var_proxy
+end
+
+setmetatable(vars, vars_mt)
 
 local function refine() end
 
@@ -23,7 +30,7 @@ local function match_refine(abbreviated_rules)
     for _, abbreviated_rule in ipairs(abbreviated_rules) do
         local rule_pattern = {}
         local pattern = abbreviated_rule[1]
-        if m.is_array(pattern) then
+        if type(pattern) == "table" and pattern[1] then
             for _, abbreviated_var in ipairs(pattern) do
                 assert(type(abbreviated_var) == "string", "Only abbreviate string/named keys")
                 rule_pattern[abbreviated_var] = refine_vars[abbreviated_var]
@@ -53,12 +60,40 @@ local function match_refine(abbreviated_rules)
             elseif type(v) == "table" and rawget(v, var_key) then
                 local refine_var = refine_vars[v[var_key]]
                 assert(refine_var, "Variable " .. v[var_key] .. " not set for projection")
-                projection[k] = refine_var()
+                local value = refine_var()
+                assert(value ~= nil, "No value matched for variable " .. v[var_key])
+
+                if rawget(v, 'subkeys') then
+                    for _, k in ipairs(v.subkeys) do
+                        assert(type(value) == "table", 
+                                        "Unexpected value of type "
+                                        .. type(value) 
+                                        .. " while trying to subkey with '" 
+                                        .. k .. "'")
+                        local subvalue = value[k]
+                        assert(subvalue ~= nil,
+                                "Variable " .. v[var_key] ..
+                                " does not have expected path/subkeys ." ..
+                                table.concat(v.subkeys, ".") ..
+                                " failed at expected subkey " .. k)
+                        value = subvalue
+                    end
+                end
+
+                projection[k] = value
             else
                 projection[k] = v
             end
         end
         return projection
+    end
+
+    local function project_and_roll_tables(maybe_project_set, input_set)
+        if type(maybe_project_set) == "table" then
+            return project_and_roll(maybe_project_set, input_set)
+        else
+            return maybe_project_set
+        end
     end
 
     local function match_refine_for_given_rules(target)
@@ -75,10 +110,13 @@ local function match_refine(abbreviated_rules)
                         ongoing_projection = project_and_roll(transform, ongoing_projection)
                     elseif type(transform) == "function" then
                         if transform == refine then
-                            -- maybe roll ongoing_projection here
-                            ongoing_projection = match_refine_for_given_rules(ongoing_projection)
+                            ongoing_projection = project_and_roll_tables(
+                                    match_refine_for_given_rules(ongoing_projection), 
+                                    ongoing_projection)
                         else
-                            ongoing_projection = transform(ongoing_projection)
+                            ongoing_projection = project_and_roll_tables(
+                                    transform(ongoing_projection),
+                                    ongoing_projection)
                         end
                     else
                         ongoing_projection = transform

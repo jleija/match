@@ -82,7 +82,7 @@ describe("match-refine", function()
             { 1, "one" },
             { 2, "two" },
         }
-        assert.is.same( "two", refiner(2))
+        assert.is.equal( "two", refiner(2))
     end)
     it("allows for a single, stand-alone, consequent function (no need for array consequent)", function()
         local function sum(set) return set.a + set.b end
@@ -90,7 +90,46 @@ describe("match-refine", function()
             { {"a", "b"}, sum },
             { {"x", "y"}, { {a=mr.vars.x, b=mr.vars.y}, sum } },
         }
-        assert.is.same( 3, refiner{a=1, b=2})
-        assert.is.same( 3, refiner{x=1, y=2})
+        assert.is.equal( 3, refiner{a=1, b=2})
+        assert.is.equal( 3, refiner{x=1, y=2})
+    end)
+    it("handles mixed patterns with abbreviated variables and explicit key-and-value matches", function()
+        local function sum(set) return set.a + set.b end
+        local function mul(set) return set.a * set.b end
+        local refiner = mr.match_refine{
+            { { op = "+", "a", "b"}, sum },
+            { { op = "*", "a", "b"}, mul },
+        }
+        assert.is.equal(  7, refiner{op='+',a=3, b=4})
+        assert.is.equal( 12, refiner{op='*',a=3, b=4})
+    end)
+    it("rolls/merges tables returned by function projections into ongoing set", function()
+        local function roll_x(set) return { x = 1} end
+        local function roll_y(set) return { y = 2} end
+        local refiner = mr.match_refine{
+            { { "a", "b"}, { roll_x, roll_y } },
+            { { "z" }, { roll_x, {a=1}, roll_y } },
+        }
+        assert.is.same( {a=1,b=2,x=1,y=2}, refiner{a=1,b=2})
+        assert.is.same( {a=1,z=2,x=1,y=2}, refiner{z=2})
+    end)
+    it("can use table variables with nested tables", function()
+        local refiner = mr.match_refine{
+            { {"a", "b"}, { { x = mr.vars.a, y = mr.vars.b.c.d } } }
+        }
+        assert.is.same( {a=1, b={c={d=2}}, x=1,y=2}, refiner{a=1, b={c={d=2}}} )
+    end)
+    it("fails when promised/expected subkeys path does not exist in bound variable", function()
+        local refiner = mr.match_refine{
+            { {"a", "b"}, { { x = mr.vars.a, y = mr.vars.b.c.d } } }
+        }
+        assert.is.error(function() refiner{a=1, b={c={e=2}}} end, 
+            "Variable b does not have expected path/subkeys .c.d failed at expected subkey d")
+    end)
+    it("fails when trying to realize/bind/coerce with undefined var", function()
+        local refiner = mr.match_refine{
+            { {"a", "b"}, { { x = mr.vars.a, y = mr.vars.k } } }
+        }
+        assert.is.error(function() refiner{a=1, b=2} end, "No value matched for variable k")
     end)
 end)
