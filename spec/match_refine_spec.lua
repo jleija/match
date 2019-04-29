@@ -62,6 +62,13 @@ describe("match-refine", function()
         }
         assert.is.equal( 10, refiner{a=2, b=3})
     end)
+    it("does multiple rolling projections collecting vars with intermediate vars", function()
+        local function inc(x) return 5 + x end
+        local refiner = mr.match_refine{
+            { 1 , { { x = inc }, { y = mr.vars.x } } },
+        }
+        assert.is.same( { x = 6, y = 6 }, refiner(1))
+    end)
     it("can reference variables in projections", function()
         local function double_x(set) return set.x * 2 end
         local refiner = mr.match_refine{
@@ -131,5 +138,29 @@ describe("match-refine", function()
             { {"a", "b"}, { { x = mr.vars.a, y = mr.vars.k } } }
         }
         assert.is.error(function() refiner{a=1, b=2} end, "No value matched for variable k")
+    end)
+    it("is ok to return nil in a consequent", function()
+        local count = 0
+        local function call_me() count = count + 1 end
+        local count_too = 0
+        local function call_me_too() count_too = count_too + 1 end
+        local refiner = mr.match_refine{
+            { "here", call_me },    -- call_me returns nil. Still ends matching 
+            { "here", call_me_too },-- this should not be tested
+            { m.otherwise, 4 }
+        }
+        assert.is_nil(refiner("here"))
+        assert.is.equal(1, count)
+        assert.is.equal(0, count_too)
+    end)
+    it("tests a single predicate", function()
+        local refiner = mr.match_refine{
+            { m.is_array, "array" },
+            { m.is_string, function(x) return #x end },
+            { m.otherwise, "other" }
+        }
+        assert.is.equal("array", refiner{1,2,3} )
+        assert.is.equal(3, refiner("abc") )
+        assert.is.equal("other", refiner(2))
     end)
 end)

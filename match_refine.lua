@@ -49,9 +49,11 @@ local function match_refine(abbreviated_rules)
 
     local function project_and_roll(project_set, input_set)
         local projection = {}
-        for k,v in pairs(input_set) do
-            if not project_set[k] then
-                projection[k] = v
+        if type(input_set) == "table" then
+            for k,v in pairs(input_set) do
+                if not project_set[k] then
+                    projection[k] = v
+                end
             end
         end
         for k, v in pairs(project_set) do
@@ -60,7 +62,7 @@ local function match_refine(abbreviated_rules)
             elseif type(v) == "table" and rawget(v, var_key) then
                 local refine_var = refine_vars[v[var_key]]
                 assert(refine_var, "Variable " .. v[var_key] .. " not set for projection")
-                local value = refine_var()
+                local value = refine_var() or input_set[v[var_key]]
                 assert(value ~= nil, "No value matched for variable " .. v[var_key])
 
                 if rawget(v, 'subkeys') then
@@ -100,7 +102,7 @@ local function match_refine(abbreviated_rules)
         for _, rule in ipairs(rules) do
             local pattern = rule[1]
             local refine_plan, initial_set = matcher(target)
-            if refine_plan then
+            if initial_set then
                 if not m.is_array(refine_plan) then
                     return refine_plan
                 end
