@@ -163,4 +163,25 @@ describe("match-refine", function()
         assert.is.equal(3, refiner("abc") )
         assert.is.equal("other", refiner(2))
     end)
+    pending("passes original set to a function consequent, not just the matching elements of it. Maybe this behavior is not desired(?)", function()
+        local got_c
+        local function get_c(set) got_c = set.c return set end
+        local original = { a=1, b=2, c=3 }
+        local refiner = mr.match_refine{
+            { { "a", "b" }, get_c }
+        }
+        refiner(original)
+        assert.is.equal(3, got_c)
+    end)
+    it("passes #original set a list consequent, not just the matching elements of it", function()
+        local got_c
+        local function get_c(set) got_c = set.c return set end
+        local original = { a=1, b=2, c=3 }
+        local refiner = mr.match_refine{
+            { { "a", "b" }, { get_c, { z=mr.vars.c } } }
+        }
+        local res = refiner(original)
+        assert.is.equal(3, got_c)
+        assert.is.same({a=1, b=2, c=3, z=3}, res)
+    end)
 end)

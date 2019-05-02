@@ -62,7 +62,9 @@ local function match_refine(abbreviated_rules)
             elseif type(v) == "table" and rawget(v, var_key) then
                 local refine_var = refine_vars[v[var_key]]
                 assert(refine_var, "Variable " .. v[var_key] .. " not set for projection")
-                local value = refine_var() or input_set[v[var_key]]
+                local value = refine_var() 
+                                or project_set[v[var_key]] 
+                                or input_set[v[var_key]] 
                 assert(value ~= nil, "No value matched for variable " .. v[var_key])
 
                 if rawget(v, 'subkeys') then
@@ -106,7 +108,7 @@ local function match_refine(abbreviated_rules)
                 if not m.is_array(refine_plan) then
                     return refine_plan
                 end
-                local ongoing_projection = initial_set
+                local ongoing_projection = target
                 for _, transform in ipairs(refine_plan) do
                     if type(transform) == "table" then
                         ongoing_projection = project_and_roll(transform, ongoing_projection)
