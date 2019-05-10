@@ -1,5 +1,6 @@
 local mr = require("match_refine")
 local m = require("match")
+local mm = require'mm'
 
 describe("match-refine", function()
     it("rolls constant projections", function()
@@ -173,7 +174,7 @@ describe("match-refine", function()
         refiner(original)
         assert.is.equal(3, got_c)
     end)
-    it("passes #original set a list consequent, not just the matching elements of it", function()
+    it("passes original set a list consequent, not just the matching elements of it", function()
         local got_c
         local function get_c(set) got_c = set.c return set end
         local original = { a=1, b=2, c=3 }
@@ -183,5 +184,43 @@ describe("match-refine", function()
         local res = refiner(original)
         assert.is.equal(3, got_c)
         assert.is.same({a=1, b=2, c=3, z=3}, res)
+    end)
+    it("displays errors with template name and rule number, when available", function()
+        local function failed_op(set) return set.a + set.x end
+        local refiner = mr.match_refine{
+            name = "template_a",
+            { { "a", "b" }, { failed_op } }
+        }
+        local _, err = pcall(function() refiner{a=1, b=0} end)
+        assert.is.truthy(err:match("match_refine template_a, rule 1, refine 1.*attempt to perform arithmetic on field 'x' %(a nil value%)"))
+    end)
+    it("displays errors with template name and rule name, when available", function()
+        local function failed_op(set) return set.a + set.x end
+        local function ok_fn() return {} end
+        local refiner = mr.match_refine{
+            name = "template_a",
+            { { "a", "b" }, { ok_fn, failed_op }, name = "rule_x" }
+        }
+        local _, err = pcall(function() refiner{a=1, b=0} end)
+        assert.is.truthy(err:match("match_refine template_a, rule rule_x, refine 2.*attempt to perform arithmetic on field 'x' %(a nil value%)"))
+    end)
+    it("displays errors with full trace in #nested match-refines", function()
+        local function failed_op(set) return set.a + set.x end
+        local function ok_fn() return {} end
+        local inner_refiner = mr.match_refine{
+            name = "template_inner",
+            { { "z" }, {}, name = "unmatched_inner" },
+            { { "a", "b" }, { ok_fn, failed_op }, name = "rule_ab" },
+            { m.otherwise, mm }
+        }
+        local outer_refiner = mr.match_refine{
+            name = "template_outer",
+            { { "c" }, { ok_fn, inner_refiner }, name = "rule_c" },
+            { m.otherwise, mm }
+        }
+        local res, err = pcall(function() outer_refiner{a=1, b=0, c=1} end)
+        assert.is.truthy(err:match("match_refine template_outer, rule rule_c, refine 2.*match_refine template_inner, rule rule_ab, refine 2.*attempt to perform arithmetic on field 'x' %(a nil value%)"))
+    end)
+    pending("displays refine 1 when the refines consequent is a single function", function()
     end)
 end)
