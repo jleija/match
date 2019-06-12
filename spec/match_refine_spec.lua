@@ -1,6 +1,5 @@
 local mr = require("match_refine")
 local m = require("match")
-local mm = require'mm'
 
 describe("match-refine", function()
     it("rolls constant projections", function()
@@ -204,19 +203,19 @@ describe("match-refine", function()
         local _, err = pcall(function() refiner{a=1, b=0} end)
         assert.is.truthy(err:match("match_refine template_a, rule rule_x, refine 2.*attempt to perform arithmetic on field 'x' %(a nil value%)"))
     end)
-    it("displays errors with full trace in #nested match-refines", function()
+    it("displays errors with full trace in nested match-refines", function()
         local function failed_op(set) return set.a + set.x end
         local function ok_fn() return {} end
         local inner_refiner = mr.match_refine{
             name = "template_inner",
             { { "z" }, {}, name = "unmatched_inner" },
             { { "a", "b" }, { ok_fn, failed_op }, name = "rule_ab" },
-            { m.otherwise, mm }
+            { m.otherwise, print }
         }
         local outer_refiner = mr.match_refine{
             name = "template_outer",
             { { "c" }, { ok_fn, inner_refiner }, name = "rule_c" },
-            { m.otherwise, mm }
+            { m.otherwise, print }
         }
         local res, err = pcall(function() outer_refiner{a=1, b=0, c=1} end)
         assert.is.truthy(err:match("match_refine template_outer, rule rule_c, refine 2.*match_refine template_inner, rule rule_ab, refine 2.*attempt to perform arithmetic on field 'x' %(a nil value%)"))
