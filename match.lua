@@ -78,10 +78,8 @@ end
 
 local function id(v) return function(x) return v == x and v or nil end end
 local function value(v) return v end
+local function otherwise(v) return v end
 
---local function default_value(default) 
---    return function(x) return x ~= nil and x or default end 
---end
 local default_values_to_promises = {}
 local default_promises = {}
 local function default_value(x) 
@@ -475,8 +473,77 @@ local function apply_match(transform, matched, captures, vars, n)
     end
 end
 
+local function specificity(obj, specificity_so_far)
+    specificity_so_far = specificity_so_far or 1
+
+    if type(obj) == "table" then
+        for _, value in pairs(obj) do
+            specificity_so_far = specificity_so_far + 1
+            if type(value) == "table" then
+                specificity_so_far = specificity(value, specificity_so_far)
+            end
+        end
+    end
+    return specificity_so_far
+end
+
+local function is_subset_of(superset, subset)
+    if type(superset) == "table" and type(subset) == "table" then
+        for k, v in pairs(subset) do
+            if type(v) == "function" or type(supervalue) == "function" then
+                return false
+            end
+            if type(v) == "table" then
+                if type(superset[k]) == "table" then
+                    local value_is_subset = is_subset_of(superset[k], v)
+                    if not value_is_subset then
+                        return false
+                    end
+                else
+                    return false
+                end
+            else
+                local supervalue = superset[k]
+                if supervalue ~= v then
+                    return false
+                end
+            end
+        end
+    elseif superset ~= subset then
+        return false
+    end
+    return true
+end
+
+local function check_otherwise_is_last(rules)
+   for i, rule in ipairs(rules) do
+        if rule[1] == otherwise then
+            if i ~= #rules then
+                error("The 'otherwise' clause must be the last in the rules, here found in clause " 
+                       .. i .. " of " .. #rules)
+            end
+        end
+   end
+end
+
+local function check_specific_to_general_ordering(rules)
+    for i=1,#rules do
+        for j=i+1,#rules do
+            if is_subset_of(rules[j][1], rules[i][1]) then
+                error("Unreachable rule " 
+                       .. j .. " due to more general, or duplicated, prior rule " 
+                       .. i)
+            end
+        end
+    end
+end
+
 local function matcher(match_pairs)
+    check_otherwise_is_last(match_pairs)
+    check_specific_to_general_ordering(match_pairs)
+
     return function(target)
+        local matching_rules = {}
         for i, match_pair in ipairs(match_pairs) do
             local matched, captures, vars = match_root(match_pair[1], target)
             if matched ~= nil then
@@ -489,7 +556,7 @@ end
 return {
     key = key,
     value = value,
-    otherwise = value,
+    otherwise = otherwise,
     optional = optional,
     missing = missing,
     default_value = default_value,

@@ -102,50 +102,45 @@ local function match_refine(abbreviated_rules)
     end
 
     local function match_refine_for_given_rules(target)
-        -- TODO: why do we need this loop if matcher already
-        -- does it for us???
-        for _, rule in ipairs(rules) do     
-            local pattern = rule[1]
-            local refine_plan, initial_set, rule_n = matcher(target)
-            if initial_set then
-                if not m.is_array(refine_plan) then
-                    return refine_plan
-                end
-                local ongoing_projection = target
-                for refine_n, refine in ipairs(refine_plan) do
-                    if type(refine) == "table" then
-                        ongoing_projection = project_and_roll(refine, ongoing_projection)
-                    elseif type(refine) == "function" then
-                        if refine == recurse_refine then
-                            ongoing_projection = project_and_roll_tables(
-                                    match_refine_for_given_rules(ongoing_projection), 
-                                    ongoing_projection)
-                        else
-                            local status, res_or_err = pcall(function()
-                                        return refine(ongoing_projection)
-                                    end)
-
-                            if not status then
-                                error("match_refine " 
-                                        .. (abbreviated_rules.name or "unknown")
-                                        .. ", rule "
-                                        .. (abbreviated_rules[rule_n].name or rule_n)
-                                        .. ", refine "
-                                        .. refine_n
-                                        .. ": " 
-                                        .. res_or_err)
-                            else
-                                ongoing_projection = project_and_roll_tables(
-                                        res_or_err,
-                                        ongoing_projection)
-                            end
-                        end
-                    else
-                        ongoing_projection = refine
-                    end
-                end
-                return ongoing_projection
+        local refine_plan, matched_set, rule_n = matcher(target)
+        if matched_set then
+            if not m.is_array(refine_plan) then
+                return refine_plan
             end
+            local ongoing_projection = target
+            for refine_n, refine in ipairs(refine_plan) do
+                if type(refine) == "table" then
+                    ongoing_projection = project_and_roll(refine, ongoing_projection)
+                elseif type(refine) == "function" then
+                    if refine == recurse_refine then
+                        ongoing_projection = project_and_roll_tables(
+                                match_refine_for_given_rules(ongoing_projection), 
+                                ongoing_projection)
+                    else
+                        local status, res_or_err = pcall(function()
+                                    return refine(ongoing_projection)
+                                end)
+
+                        if not status then
+                            error("match_refine " 
+                                    .. (abbreviated_rules.name or "unknown")
+                                    .. ", rule "
+                                    .. (abbreviated_rules[rule_n].name or rule_n)
+                                    .. ", refine "
+                                    .. refine_n
+                                    .. ": " 
+                                    .. res_or_err)
+                        else
+                            ongoing_projection = project_and_roll_tables(
+                                    res_or_err,
+                                    ongoing_projection)
+                        end
+                    end
+                else
+                    ongoing_projection = refine
+                end
+            end
+            return ongoing_projection
         end
         return nil
     end

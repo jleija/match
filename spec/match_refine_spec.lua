@@ -77,12 +77,21 @@ describe("match-refine", function()
         }
         assert.is.equal( 4, refiner{a=2, b=3})
     end)
-    it("allows for a default clause", function()
+    it("allows for a default (otherwise) clause", function()
         local refiner = mr.match_refine{
             { {"a", "b"}, { "not this one" } },
             { m.otherwise,             { 1 } }
         }
         assert.is.same( 1, refiner{x="value x"})
+    end)
+    it("prevents use of otherwise at rules other than the last rule", function()
+        local fn, err = pcall(function() return mr.match_refine{
+                            { m.otherwise,             { 1 } },
+                            { {"a", "b"}, { "not this one" } }
+                        }
+                        end)
+        assert.is.falsy(fn)
+        assert.is.truthy(err:match("The 'otherwise' clause must be the last in the rules, here found in clause 1 of 2"))
     end)
     it("allows for simple matcher clauses", function()
         local refiner = mr.match_refine{
@@ -142,16 +151,12 @@ describe("match-refine", function()
     it("is ok to return nil in a consequent", function()
         local count = 0
         local function call_me() count = count + 1 end
-        local count_too = 0
-        local function call_me_too() count_too = count_too + 1 end
         local refiner = mr.match_refine{
             { "here", call_me },    -- call_me returns nil. Still ends matching 
-            { "here", call_me_too },-- this should not be tested
             { m.otherwise, 4 }
         }
         assert.is_nil(refiner("here"))
         assert.is.equal(1, count)
-        assert.is.equal(0, count_too)
     end)
     it("tests a single predicate", function()
         local refiner = mr.match_refine{

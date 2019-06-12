@@ -450,4 +450,36 @@ describe("matcher", function()
         assert.is.error(function() matcher({x=3}) end, 
             "Possibly trying to apply an unbound variable with same name as bound variable 'x': Make sure to use the same instance of var in the match and its transform (#1)")
     end)
+    describe("enforcement of specific vs general rule selection policies", function()
+        it("Errors out when a more general rule is defined earlier than a more specific matching rule", function()
+            local match_fn, err = pcall(function() return m.matcher{
+                name = "backwards_pattern",
+                { { "a" }, "general" },
+                { { "a", "b" }, "specific" }
+            } end)
+            assert.is_falsy(match_fn)
+            assert.is.truthy(err:find("Unreachable rule " 
+                       .. 2 .. " due to more general, or duplicated, prior rule " 
+                       .. 1))
+        end)
+        it("Errors out when a more general rule is defined earlier than a more specific matching rule, recursively", function()
+            local match_fn, err = pcall(function() return m.matcher{
+                name = "backwards_pattern",
+                { { a = { "a" } }, "general" },
+                { { a = { "a", "b" } }, "specific" }
+            } end)
+            assert.is_falsy(match_fn)
+            assert.is.truthy(err:find("Unreachable rule " 
+                       .. 2 .. " due to more general, or duplicated, prior rule " 
+                       .. 1))
+
+            local match_fn, res = pcall(function() return m.matcher{
+                name = "forward_pattern",
+                { { a = { "a", "b" } }, "specific" },
+                { { a = { "a" } }, "general" }
+            } end)
+            assert.is_truthy(match_fn)
+            assert.is.same("function", type(res))
+        end)
+    end)
 end)
