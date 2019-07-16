@@ -490,6 +490,7 @@ end
 local function is_subset_of(superset, subset)
     if type(superset) == "table" and type(subset) == "table" then
         for k, v in pairs(subset) do
+            local supervalue = superset[k]
             if type(v) == "function" or type(supervalue) == "function" then
                 return false
             end
@@ -503,7 +504,6 @@ local function is_subset_of(superset, subset)
                     return false
                 end
             else
-                local supervalue = superset[k]
                 if supervalue ~= v then
                     return false
                 end
