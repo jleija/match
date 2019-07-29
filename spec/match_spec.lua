@@ -481,5 +481,23 @@ describe("matcher", function()
             assert.is_truthy(match_fn)
             assert.is.same("function", type(res))
         end)
+        it("Errors out when a rule has either a nil match or a nil consequent", function()
+            local bad_namespace = {}
+            local match_fn, err = pcall(function() return m.matcher{
+                name = "nil_consequent",
+                { { a = { "a" } }, bad_namespace.x }
+            } end)
+
+            assert.is_falsy(match_fn)
+            assert.is.truthy(err:find("nil consequent in rule #1, in nil_consequent matcher"))
+
+            local match_fn, err = pcall(function() return m.matcher{
+                name = "nil_antecedent",
+                { nil, 1 }
+            } end)
+
+            assert.is_falsy(match_fn)
+            assert.is.truthy(err:find("nil antecedent in rule #1, in nil_antecedent matcher"))
+        end)
     end)
 end)

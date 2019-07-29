@@ -538,9 +538,21 @@ local function check_specific_to_general_ordering(rules)
     end
 end
 
+local function check_for_nils_in_rules(rules)
+    for i=1,#rules do
+        if rules[i][1] == nil then
+            error("nil antecedent in rule #" .. i .. ", in " .. (rules.name or "anonymous") .. " matcher")
+        end
+        if rules[i][2] == nil then
+            error("nil consequent in rule #" .. i .. ", in " .. (rules.name or "anonymous") .. " matcher")
+        end
+    end
+end
+
 local function matcher(match_pairs)
     check_otherwise_is_last(match_pairs)
     check_specific_to_general_ordering(match_pairs)
+    check_for_nils_in_rules(match_pairs)
 
     return function(target)
         local matching_rules = {}
