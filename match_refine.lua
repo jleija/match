@@ -46,6 +46,7 @@ local function match_refine(abbreviated_rules)
             table.insert(rules, abbreviated_rule)
         end
     end
+    rules.name = abbreviated_rules.name
     local matcher = m.matcher(rules)
 
     local function project_and_roll(project_set, input_set)
