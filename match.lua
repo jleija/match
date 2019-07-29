@@ -27,6 +27,13 @@ local function is_array(t)
     return t
 end
 
+local function value_if(fn)
+    return function(x)
+        if fn(x) then return x end
+        return nil
+    end
+end
+
 local function is_number(x)
     return type(x) == "number" and x or nil
 end
@@ -587,6 +594,7 @@ return {
     matched_value = matched_value,
     as_is = as_is,
     id = id,
+    value_if = value_if,
     is_number = is_number,
     is_string = is_string,
     is_boolean = is_boolean,

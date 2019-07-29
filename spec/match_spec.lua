@@ -72,6 +72,19 @@ describe("match", function()
             assert.is_nil(m.match_root(pattern, {x=3})) 
         end)
     end)
+    describe("use of value_if for custom/user predicates that might not return nil for false", function()
+        local is_even = function(x) return x % 2 == 0 end
+        it("won't match a false value when value_if is used. Correct use", function()
+            local pattern = {x=m.value_if(is_even)}
+            assert.is.truthy(m.match_root(pattern, {x=4})) 
+            assert.is_nil(m.match_root(pattern, {x=3})) 
+        end)
+        it("will match a false value in a user predicate and pass it to the consequent. Counter example of value_if", function()
+            local pattern = {x=is_even}
+            assert.is.truthy(m.match_root(pattern, {x=4})) 
+            assert.is.same({x=false}, m.match_root(pattern, {x=3})) 
+        end)
+    end)
     it("can match tables by identity rather than by value", function()
         local unique = {x=1}
         local pattern = m.id(unique)
