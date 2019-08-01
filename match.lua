@@ -20,7 +20,7 @@ local function is_array(t)
 
     local size = table_size(t)
     for i=1,size do
-        if rawget(t,i) == nil then
+        if t[i] == nil then
             return nil
         end
     end
@@ -73,11 +73,11 @@ local function deepcompare(t1,t2,ignore_mt)
     local mt = getmetatable(t1)
     if not ignore_mt and mt and mt.__eq then return t1 == t2 end
     for k1,v1 in pairs(t1) do
-    local v2 = rawget(t2,k1)
+    local v2 = t2[k1]
     if v2 == nil or not deepcompare(v1,v2) then return false end
     end
     for k2,v2 in pairs(t2) do
-    local v1 = rawget(t1,k2)
+    local v1 = t1[k2]
     if v1 == nil or not deepcompare(v1,v2) then return false end
     end
     return true
@@ -104,7 +104,7 @@ local function tail(t, k)
     assert(type(k) == "number", "Invalid key: '" .. k .. "' of type " .. type(k))
     local res = {}
     for i=k,#t do
-        table.insert(res, rawget(t,i))
+        table.insert(res, t[i])
     end
     return res
 end
@@ -184,7 +184,7 @@ local function match_root( pattern, target)
             if k == key then
                 return function(t, key_fn, value)
                     for k, v in pairs(t) do
-                        local res = match_root_recursive( value, rawget(t,k))
+                        local res = match_root_recursive( value, t[k])
                         if res ~= nil then 
                             return res, k 
                         end
@@ -196,7 +196,7 @@ local function match_root( pattern, target)
                 local maybe_key_var = k
                 return function(t, key_fn, value)
                     for k, v in pairs(t) do
-                        local res = match_root_recursive( value, rawget(t,k))
+                        local res = match_root_recursive( value, t[k])
                         if res ~= nil then 
                             maybe_key_var(k)
                             return res, k 
@@ -230,7 +230,7 @@ local function match_root( pattern, target)
                     end, k
                 else
                     return function(t, key, _)
-                        local v = rawget(t, key)
+                        local v = t[key]
                         if v ~= nil then return v, key end
                         resolve_promises = true
                         return optional, k
@@ -239,7 +239,7 @@ local function match_root( pattern, target)
             end
             if v == missing then
                 return function(t, key, _)
-                    local v = rawget(t, key)
+                    local v = t[key]
                     if v == nil then return missing, key end
                     return nil, k
                 end, k
@@ -262,13 +262,13 @@ local function match_root( pattern, target)
             local value_promise = default_promises[v] 
             if value_promise then
                 return function(t, _, _)
-                    local value = rawget(t, k)
+                    local value = t[k]
                     if value ~= nil then return value, k end
                     return v(), k
                 end, k
             end
-            if rawget(t,k) ~= nil then 
-                return function(t, k, v) return match_root_recursive( v, rawget(t,k)), k end, k
+            if t[k] ~= nil then 
+                return function(t, k, v) return match_root_recursive( v, t[k]), k end, k
             else
                 return function() return nil, nil end, k
             end
