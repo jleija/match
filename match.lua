@@ -168,6 +168,21 @@ local function vars()
     return vs
 end
 
+local key_id = {}
+
+local function keys()
+    local keys_namespace = {}
+    local mt = {
+        __index = function(t, k)
+            return {
+                [key_id] = k
+            }
+        end
+    }
+    setmetatable(keys_namespace, mt)
+    return keys_namespace
+end
+
 local function match_empties(a, b)
     if is_empty_table(a) and is_empty_table(b) then
         return {}
@@ -175,6 +190,7 @@ local function match_empties(a, b)
 end
 
 local function match_root( pattern, target)
+    local V = vars()
     local captures = {}
     local vars = {}
     local resolve_promises = false
@@ -324,7 +340,27 @@ local function match_root( pattern, target)
         return nil
     end
 
-    local matched_table = match_root_recursive(pattern, target)
+    local function expand_key_abbreviations(pattern)
+        if type(pattern) == "table" then
+            if pattern[key_id] then
+                return V[pattern[key_id]]
+            end
+            local expanded_pattern = {}
+            for k, v in pairs(pattern) do
+                if is_table(v) and v[key_id] then
+                    expanded_pattern[v[key_id]] = V[v[key_id]]
+                else
+                    expanded_pattern[k] = expand_key_abbreviations(v)
+                end
+            end
+            return expanded_pattern
+        else
+            return pattern
+        end
+    end
+
+    local expanded_pattern = expand_key_abbreviations(pattern)
+    local matched_table = match_root_recursive(expanded_pattern, target)
 
     if resolve_promises then
         second_pass = true
@@ -584,6 +620,7 @@ return {
     nothing = nothing_promise,
     nothing_else = nothing_promise,
     tail = tail_promise,
+    keys = keys,
     vars = vars,
     match_root = match_root,
     match = match,
