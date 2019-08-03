@@ -25,7 +25,7 @@ setmetatable(vars, vars_mt)
 local function recurse_refine() end
 
 local function match_refine(abbreviated_rules)
-    local refine_vars = m.vars()
+    local refine_vars = m.namespace().vars
     local rules = {}
     for _, abbreviated_rule in ipairs(abbreviated_rules) do
         local rule_pattern = {}

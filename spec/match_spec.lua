@@ -254,7 +254,7 @@ describe("match", function()
         end)
     end)
     describe("key capture", function()
-        local K = m.keys()
+        local K = m.namespace().keys
         it("matches keys and captures their value", function()
             -- K.x is an abbreviation of x=V.x
             local matched, captures = m.match({K.x}, {a={3,{x=88}}})
@@ -269,7 +269,7 @@ describe("match", function()
         end)
     end)
     describe("variable capture", function()
-        local V = m.vars()
+        local V = m.namespace().vars
         it("can do variable capture of simple value", function()
             local matched, captures = m.match(V.v, 55)
             assert.is.truthy(matched)
@@ -321,8 +321,8 @@ describe("match", function()
             assert.is.same({}, captures)
         end)
         it("uses table match for previously captured keys and/or variables", function()
-            local K = m.keys()
-            local V = m.vars()
+            local K = m.namespace().keys
+            local V = m.namespace().vars
             local matched, captures = m.match({{h=V.x},{K.x}},
                                                 {{h=3},{x=3}})
             assert.is.truthy(matched)
@@ -374,7 +374,7 @@ describe("match", function()
             assert.is.equal(3, vars.x)
         end)
         it("can find and return a table of matched keys for convenience of extraction", function()
-            local K = m.keys()
+            local K = m.namespace().keys
             local vars = m.find({K.x, K.y}, {{a=8,x=3,y=4}})
             assert.is.equal(4, vars.y)
             assert.is.equal(3, vars.x)
@@ -390,7 +390,7 @@ describe("matcher", function()
         return matched_set
     end
 
-    local V = m.vars()
+    local V = m.namespace().vars
     local unique_object = {}
     local matcher = m.matcher{
         { 1,                          "one" },
@@ -487,7 +487,7 @@ describe("matcher", function()
 --    end)
 
     it("errors out when trying to reference a variable that hasn't been bound", function()
-        local var_scope = m.vars()
+        local var_scope = m.namespace().vars
         local matcher = m.matcher{
             { {x=var_scope.x}, var_scope.y }
         }
@@ -495,13 +495,22 @@ describe("matcher", function()
             "Trying to apply unbound variable 'y'")
     end)
     it("errors out when trying to apply transform with unbounded variable with equally-named variable in match (two variable instances with same name)", function()
-        local var_scope_a = m.vars()
-        local var_scope_b = m.vars()
+        local var_scope_a = m.namespace().vars
+        local var_scope_b = m.namespace().vars
         local matcher = m.matcher{
             { {x=var_scope_a.x}, var_scope_b.x }
         }
         assert.is.error(function() matcher({x=3}) end, 
             "Possibly trying to apply an unbound variable with same name as bound variable 'x': Make sure to use the same instance of var in the match and its transform (#1)")
+    end)
+    it("can use variables captured through keys in consequent", function()
+        local N = m.namespace()
+        local K = N.keys
+        local V = N.vars
+        local matcher = m.matcher{
+            { {K.x}, V.x }
+        }
+        assert.is.equal(3, matcher({x=3}))
     end)
     describe("enforcement of specific vs general rule selection policies", function()
         it("Errors out when a more general rule is defined earlier than a more specific matching rule", function()

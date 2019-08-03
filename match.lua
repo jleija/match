@@ -150,37 +150,52 @@ local function var(var_name, predicate)
     end
 end
 
-local function vars()
-    local vs = {}
-    local mt = {
-        __index = function(t, k)
-            local v = var(k)
-            vs[k] = v
-            return v
-        end,
-        __call = function(t, var_name, predicate)
-            local v = var(var_name, predicate)
-            vs[var_name] = v
-            return v
-        end
-    }
-    setmetatable(vs, mt)
-    return vs
-end
-
 local key_id = {}
 
-local function keys()
-    local keys_namespace = {}
-    local mt = {
-        __index = function(t, k)
-            return {
-                [key_id] = k
-            }
-        end
+local function namespace()
+    local vs = {}
+
+    local function vars()
+    --    local vs = {}
+        local mt = {
+            __index = function(t, k)
+                local v = var(k)
+                vs[k] = v
+                return v
+            end,
+            __call = function(t, var_name, predicate)
+                local v = var(var_name, predicate)
+                vs[var_name] = v
+                return v
+            end
+        }
+        setmetatable(vs, mt)
+        return vs
+    end
+
+    local vars_instance = vars()
+
+    local function keys()
+        local keys_namespace = {}
+        local mt = {
+            __index = function(t, k)
+                local v = vars_instance[k]
+                return {
+                    [key_id] = k,
+                    vars = vars_instance
+                }
+            end
+        }
+        setmetatable(keys_namespace, mt)
+        return keys_namespace
+    end
+
+    local keys_instance = keys()
+
+    return {
+        vars = vars_instance,
+        keys = keys_instance
     }
-    setmetatable(keys_namespace, mt)
-    return keys_namespace
 end
 
 local function match_empties(a, b)
@@ -190,7 +205,7 @@ local function match_empties(a, b)
 end
 
 local function match_root( pattern, target)
-    local V = vars()
+--    local V = vars()
     local captures = {}
     local vars = {}
     local resolve_promises = false
@@ -343,12 +358,12 @@ local function match_root( pattern, target)
     local function expand_key_abbreviations(pattern)
         if type(pattern) == "table" then
             if pattern[key_id] then
-                return V[pattern[key_id]]
+                return pattern.vars[pattern[key_id]]
             end
             local expanded_pattern = {}
             for k, v in pairs(pattern) do
                 if is_table(v) and v[key_id] then
-                    expanded_pattern[v[key_id]] = V[v[key_id]]
+                    expanded_pattern[v[key_id]] = v.vars[v[key_id]]
                 else
                     expanded_pattern[k] = expand_key_abbreviations(v)
                 end
@@ -620,8 +635,9 @@ return {
     nothing = nothing_promise,
     nothing_else = nothing_promise,
     tail = tail_promise,
-    keys = keys,
-    vars = vars,
+    namespace = namespace,
+--    keys = keys,
+--    vars = vars,
     match_root = match_root,
     match = match,
     apply_vars = apply_vars,
