@@ -2,16 +2,17 @@ local mr = require("match_refine")
 local m = require("match")
 
 describe("match-refine", function()
+    local K = m.namespace().keys
     it("rolls constant projections", function()
         local refiner = mr.match_refine{
-            { {"a", "b"}, { { x = 1 }, { y = 2} } }
+            { {K.a, K.b}, { { x = 1 }, { y = 2} } }
         }
         assert.is.same({ a=2, b=3, x=1, y=2 }, refiner{a=2, b=3})
     end)
     it("rolls a single projection", function()
         local function sum(set) return set.a + set.b end
         local refiner = mr.match_refine{
-            { {"a", "b"}, { { x = sum } } }
+            { {K.a, K.b}, { { x = sum } } }
         }
         assert.is.same({ a=2, b=3, x=5 }, refiner{a=2, b=3})
     end)
@@ -19,15 +20,15 @@ describe("match-refine", function()
         local function insert_x(set) set.x = 1 return set end
         local function insert_y(set) set.y = 2 return set end
         local refiner = mr.match_refine{
-            { {"a", "b"}, { insert_x, insert_y } }
+            { {K.a, K.b}, { insert_x, insert_y } }
         }
         assert.is.same({ a=2, b=3, x=1, y=2 }, refiner{a=2, b=3})
     end)
     it("rolls refine projections", function()
         local function inc_a(set) set.a = set.a + 1 return set end
         local refiner = mr.match_refine{
-            { {"a", "b", "c"}, {"ok"} },
-            { {"a", "b"}, { { c=3 } } },
+            { {K.a, K.b, K.c}, {"ok"} },
+            { {K.a, K.b}, { { c=3 } } },
             { {a=1}, { {b=2}, mr.refine } },
             { {a=2}, { {b=2}, mr.refine, mr.refine } }
         }
@@ -38,7 +39,7 @@ describe("match-refine", function()
         local function inc_a(set) set.a = set.a + 1 return set end
         local refiner = mr.match_refine{
             { 1, 1 },
-            { {"n", "n_1"}, { { c=3 } } },
+            { {K.n, K.n_1}, { { c=3 } } },
             { {a=1}, { {b=2}, mr.refine } },
             { {a=2}, { {b=2}, mr.refine, mr.refine } }
         }
@@ -49,7 +50,7 @@ describe("match-refine", function()
         local function sum(set) return set.a + set.b end
         local function double_x(set) return set.x * 2 end
         local refiner = mr.match_refine{
-            { {"a", "b"}, { { x = sum }, double_x } }
+            { {K.a, K.b}, { { x = sum }, double_x } }
         }
         assert.is.equal( 10, refiner{a=2, b=3})
     end)
@@ -57,8 +58,8 @@ describe("match-refine", function()
         local function sum(set) return set.a + set.b end
         local function double_x(set) return set.x * 2 end
         local refiner = mr.match_refine{
-            { {"x"}, { double_x } },
-            { {"a", "b"}, { { x = sum }, mr.refine } },
+            { {K.x}, { double_x } },
+            { {K.a, K.b}, { { x = sum }, mr.refine } },
         }
         assert.is.equal( 10, refiner{a=2, b=3})
     end)
@@ -72,14 +73,14 @@ describe("match-refine", function()
     it("can reference variables in projections", function()
         local function double_x(set) return set.x * 2 end
         local refiner = mr.match_refine{
-            { {"x"}, { double_x } },
-            { {"a", "b"}, { { x = mr.vars.a }, mr.refine } },
+            { {K.x}, { double_x } },
+            { {K.a, K.b}, { { x = mr.vars.a }, mr.refine } },
         }
         assert.is.equal( 4, refiner{a=2, b=3})
     end)
     it("allows for a default (otherwise) clause", function()
         local refiner = mr.match_refine{
-            { {"a", "b"}, { "not this one" } },
+            { {K.a, K.b}, { "not this one" } },
             { m.otherwise,             { 1 } }
         }
         assert.is.same( 1, refiner{x="value x"})
@@ -87,7 +88,7 @@ describe("match-refine", function()
     it("prevents use of otherwise at rules other than the last rule", function()
         local fn, err = pcall(function() return mr.match_refine{
                             { m.otherwise,             { 1 } },
-                            { {"a", "b"}, { "not this one" } }
+                            { {K.a, K.b}, { "not this one" } }
                         }
                         end)
         assert.is.falsy(fn)
@@ -103,8 +104,8 @@ describe("match-refine", function()
     it("allows for a single, stand-alone, consequent function (no need for array consequent)", function()
         local function sum(set) return set.a + set.b end
         local refiner = mr.match_refine{
-            { {"a", "b"}, sum },
-            { {"x", "y"}, { {a=mr.vars.x, b=mr.vars.y}, sum } },
+            { {K.a, K.b}, sum },
+            { {K.x, K.y}, { {a=mr.vars.x, b=mr.vars.y}, sum } },
         }
         assert.is.equal( 3, refiner{a=1, b=2})
         assert.is.equal( 3, refiner{x=1, y=2})
@@ -113,8 +114,8 @@ describe("match-refine", function()
         local function sum(set) return set.a + set.b end
         local function mul(set) return set.a * set.b end
         local refiner = mr.match_refine{
-            { { op = "+", "a", "b"}, sum },
-            { { op = "*", "a", "b"}, mul },
+            { { op = "+", K.a, K.b}, sum },
+            { { op = "*", K.a, K.b}, mul },
         }
         assert.is.equal(  7, refiner{op='+',a=3, b=4})
         assert.is.equal( 12, refiner{op='*',a=3, b=4})
@@ -123,28 +124,28 @@ describe("match-refine", function()
         local function roll_x(set) return { x = 1} end
         local function roll_y(set) return { y = 2} end
         local refiner = mr.match_refine{
-            { { "a", "b"}, { roll_x, roll_y } },
-            { { "z" }, { roll_x, {a=1}, roll_y } },
+            { { K.a, K.b}, { roll_x, roll_y } },
+            { { K.z }, { roll_x, {a=1}, roll_y } },
         }
         assert.is.same( {a=1,b=2,x=1,y=2}, refiner{a=1,b=2})
         assert.is.same( {a=1,z=2,x=1,y=2}, refiner{z=2})
     end)
-    it("can use table variables with nested tables", function()
+    it("can use table variables with #nested tables", function()
         local refiner = mr.match_refine{
-            { {"a", "b"}, { { x = mr.vars.a, y = mr.vars.b.c.d } } }
+            { {K.a, K.b}, { { x = mr.vars.a, y = mr.vars.b.c.d } } }
         }
         assert.is.same( {a=1, b={c={d=2}}, x=1,y=2}, refiner{a=1, b={c={d=2}}} )
     end)
     it("fails when promised/expected subkeys path does not exist in bound variable", function()
         local refiner = mr.match_refine{
-            { {"a", "b"}, { { x = mr.vars.a, y = mr.vars.b.c.d } } }
+            { {K.a, K.b}, { { x = mr.vars.a, y = mr.vars.b.c.d } } }
         }
         assert.is.error(function() refiner{a=1, b={c={e=2}}} end, 
             "Variable b does not have expected path/subkeys .c.d failed at expected subkey d")
     end)
     it("fails when trying to realize/bind/coerce with undefined var", function()
         local refiner = mr.match_refine{
-            { {"a", "b"}, { { x = mr.vars.a, y = mr.vars.k } } }
+            { {K.a, K.b}, { { x = mr.vars.a, y = mr.vars.k } } }
         }
         assert.is.error(function() refiner{a=1, b=2} end, "No value matched for variable k")
     end)
@@ -173,7 +174,7 @@ describe("match-refine", function()
         local function get_c(set) got_c = set.c return set end
         local original = { a=1, b=2, c=3 }
         local refiner = mr.match_refine{
-            { { "a", "b" }, get_c }
+            { { K.a, K.b }, get_c }
         }
         refiner(original)
         assert.is.equal(3, got_c)
@@ -183,7 +184,7 @@ describe("match-refine", function()
         local function get_c(set) got_c = set.c return set end
         local original = { a=1, b=2, c=3 }
         local refiner = mr.match_refine{
-            { { "a", "b" }, { get_c, { z=mr.vars.c } } }
+            { { K.a, K.b }, { get_c, { z=mr.vars.c } } }
         }
         local res = refiner(original)
         assert.is.equal(3, got_c)
@@ -193,7 +194,7 @@ describe("match-refine", function()
         local function failed_op(set) return set.a + set.x end
         local refiner = mr.match_refine{
             name = "template_a",
-            { { "a", "b" }, { failed_op } }
+            { { K.a, K.b }, { failed_op } }
         }
         local _, err = pcall(function() refiner{a=1, b=0} end)
         assert.is.truthy(err:match("match_refine template_a, rule 1, refine 1.*attempt to perform arithmetic on field 'x' %(a nil value%)"))
@@ -203,7 +204,7 @@ describe("match-refine", function()
         local function ok_fn() return {} end
         local refiner = mr.match_refine{
             name = "template_a",
-            { { "a", "b" }, { ok_fn, failed_op }, name = "rule_x" }
+            { { K.a, K.b }, { ok_fn, failed_op }, name = "rule_x" }
         }
         local _, err = pcall(function() refiner{a=1, b=0} end)
         assert.is.truthy(err:match("match_refine template_a, rule rule_x, refine 2.*attempt to perform arithmetic on field 'x' %(a nil value%)"))
@@ -213,13 +214,13 @@ describe("match-refine", function()
         local function ok_fn() return {} end
         local inner_refiner = mr.match_refine{
             name = "template_inner",
-            { { "z" }, {}, name = "unmatched_inner" },
-            { { "a", "b" }, { ok_fn, failed_op }, name = "rule_ab" },
+            { { K.z }, {}, name = "unmatched_inner" },
+            { { K.a, K.b }, { ok_fn, failed_op }, name = "rule_ab" },
             { m.otherwise, print }
         }
         local outer_refiner = mr.match_refine{
             name = "template_outer",
-            { { "c" }, { ok_fn, inner_refiner }, name = "rule_c" },
+            { { K.c }, { ok_fn, inner_refiner }, name = "rule_c" },
             { m.otherwise, print }
         }
         local res, err = pcall(function() outer_refiner{a=1, b=0, c=1} end)

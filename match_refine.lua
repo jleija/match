@@ -24,29 +24,8 @@ setmetatable(vars, vars_mt)
 
 local function recurse_refine() end
 
-local function match_refine(abbreviated_rules)
+local function match_refine(rules)
     local refine_vars = m.namespace().vars
-    local rules = {}
-    for _, abbreviated_rule in ipairs(abbreviated_rules) do
-        local rule_pattern = {}
-        local pattern = abbreviated_rule[1]
-        if type(pattern) == "table" and pattern[1] then
-            for _, abbreviated_var in ipairs(pattern) do
-                assert(type(abbreviated_var) == "string", "Only abbreviate string/named keys")
-                rule_pattern[abbreviated_var] = refine_vars[abbreviated_var]
-            end
-            for k, v in pairs(pattern) do
-                if type(k) ~= "number" or k > #pattern then
-                    rule_pattern[k] = v
-                end
-            end
-            local refines = abbreviated_rule[2]
-            table.insert(rules, { rule_pattern, abbreviated_rule[2] })
-        else
-            table.insert(rules, abbreviated_rule)
-        end
-    end
-    rules.name = abbreviated_rules.name
     local matcher = m.matcher(rules)
 
     local function project_and_roll(project_set, input_set)
@@ -124,9 +103,9 @@ local function match_refine(abbreviated_rules)
 
                         if not status then
                             error("match_refine " 
-                                    .. (abbreviated_rules.name or "unknown")
+                                    .. (rules.name or "unknown")
                                     .. ", rule "
-                                    .. (abbreviated_rules[rule_n].name or rule_n)
+                                    .. (rules[rule_n].name or rule_n)
                                     .. ", refine "
                                     .. refine_n
                                     .. ": " 
