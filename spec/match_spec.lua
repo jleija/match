@@ -320,6 +320,20 @@ describe("match", function()
             assert.is_nil(matched)
             assert.is.same({}, captures)
         end)
+        it("uses table match for previously captured keys and/or variables", function()
+            local K = m.keys()
+            local V = m.vars()
+            local matched, captures = m.match({{h=V.x},{K.x}},
+                                                {{h=3},{x=3}})
+            assert.is.truthy(matched)
+            assert.is.same({x=3}, captures)
+
+            local matched, captures = m.match({{h=V.y},{K.y}},
+                                                {{h=3},{x=4}})
+            assert.is.falsy(matched)
+            assert.is.same({}, captures)
+
+        end)
         it("finds an element in an array returning its index in a variable", function()
             assert.is.truthy(m.match({[V.index] = "b"}, {"a", "b", "c"}))
 
