@@ -8,6 +8,7 @@ local vars = {}
 local vars_mt = {}
 
 vars_mt.__index = function(t, k)
+    assert(type(k) == "string", debug.traceback())
     if rawget(t, var_key) then
         t.subkeys = rawget(t, 'subkeys') or {}
         table.insert(t.subkeys, k)
@@ -40,10 +41,16 @@ local function match_refine(rules)
         for k, v in pairs(project_set) do
             if type(v) == "function" then
                 projection[k] = v(input_set)
+--            elseif m.is_var(v) then
+--                assert(v.value ~= m.unbound, "Unbound variable '" 
+--                                        .. v.name[var_key]
+--                                        .. "' in projection")
+--                projection[k] = v.value
             elseif type(v) == "table" and rawget(v, var_key) then
                 local refine_var = refine_vars[v[var_key]]
                 assert(refine_var, "Variable " .. v[var_key] .. " not set for projection")
-                local value = refine_var() 
+--                local value = refine_var() 
+                local value = refine_var.value ~= m.unbound and refine_var.value
                                 or project_set[v[var_key]] 
                                 or input_set[v[var_key]] 
                 assert(value ~= nil, "No value matched for variable " .. v[var_key])
@@ -82,14 +89,18 @@ local function match_refine(rules)
     end
 
     local function match_refine_for_given_rules(target)
-        local refine_plan, matched_set, rule_n = matcher(target)
+        -- TODO: make sure to use the same namespace for variables
+        --       - use bound_vars to do the prqjections
+        local refine_plan, matched_set, bound_vars, rule_n = matcher(target)
         if matched_set then
             if not m.is_array(refine_plan) then
                 return refine_plan
             end
             local ongoing_projection = target
             for refine_n, refine in ipairs(refine_plan) do
-                if type(refine) == "table" then
+                if m.is_var(refine) then
+                    ongoing_projection[refine.name] = refine.value
+                elseif type(refine) == "table" then
                     ongoing_projection = project_and_roll(refine, ongoing_projection)
                 elseif type(refine) == "function" then
                     if refine == recurse_refine then

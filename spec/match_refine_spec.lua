@@ -63,7 +63,7 @@ describe("match-refine", function()
         }
         assert.is.equal( 10, refiner{a=2, b=3})
     end)
-    it("does multiple rolling projections collecting vars with intermediate vars", function()
+    it("does #multiple rolling projections collecting vars with intermediate vars", function()
         local function inc(x) return 5 + x end
         local refiner = mr.match_refine{
             { 1 , { { x = inc }, { y = mr.vars.x } } },

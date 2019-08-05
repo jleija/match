@@ -1,7 +1,7 @@
 local var_proof = {}        -- unique value to recognize variable functions
 
 local function is_var(x)
-    return type(x) == "table" and x[var_proof]
+    return type(x) == "table" and rawget(x, var_proof)
 end
 
 local function is_empty_table(t)
@@ -224,6 +224,7 @@ local function namespace()
                 local v = vars_instance[k]
                 return {
                     [key_id] = k,
+                    name = k,
                     variable = v,
                     vars = vars_instance
                 }
@@ -239,6 +240,10 @@ local function namespace()
         vars = vars_instance,
         keys = keys_instance
     }
+end
+
+local function is_key(x)
+    return type(x) == "table" and rawget(x, key_id)
 end
 
 local function match_empties(a, b)
@@ -654,7 +659,15 @@ local function is_subset_of(superset, subset)
             if type(v) == "function" or type(supervalue) == "function" then
                 return false
             end
-            if type(v) == "table" then
+            if is_key(v) then
+                if not is_key(supervalue) or v.name ~= supervalue.name then
+                    return false
+                end
+            elseif is_var(v) then
+                if not is_var(supervalue) or v.name ~= supervalue.name then
+                    return false
+                end
+            elseif type(v) == "table" then
                 if type(superset[k]) == "table" then
                     local value_is_subset = is_subset_of(superset[k], v)
                     if not value_is_subset then
@@ -719,7 +732,8 @@ local function matcher(match_pairs)
         for i, match_pair in ipairs(match_pairs) do
             local matched, captures, vars = match_root(match_pair[1], target)
             if matched ~= nil then
-                return apply_match(match_pair[2], matched, captures, vars, i), matched, i
+--                return apply_match(match_pair[2], matched, captures, vars, i), matched, i
+                return apply_match(match_pair[2], matched, captures, vars, i), matched, vars, i
             end
         end
     end
