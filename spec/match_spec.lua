@@ -268,7 +268,7 @@ describe("match", function()
             assert.is.equal("just x", captures.x)
         end)
     end)
-    describe("variable capture", function()
+    describe("#variable capture", function()
         local V = m.namespace().vars
         it("can do variable capture of simple value", function()
             local matched, captures = m.match(V.v, 55)
@@ -337,6 +337,7 @@ describe("match", function()
         it("finds an element in an array returning its index in a variable", function()
             assert.is.truthy(m.match({[V.index] = "b"}, {"a", "b", "c"}))
 
+            assert.is.equal(2, V.index.value)
             assert.is.equal(2, V.index())
         end)
         it("can retrieve the variables after their use (needed for pattern dispatch)", function()
@@ -396,7 +397,8 @@ describe("matcher", function()
         { 1,                          "one" },
         { {"matched"},                m.matched_value },
         { "unique",                   m.as_is(unique_object) },
-        { {even = V('n', is_even)},   V.n },      -- conditional variables
+--        { {even = V('n', is_even)},   V.n },      -- conditional variables
+        { {even = V.n(is_even)},      V.n },      -- conditional variables
         { {x=V.x},                    V.x},
         { {sum={a=V.a,b=V.b}},        function(vars) return vars.a + vars.b end },
                                       -- unpacked positional variables
@@ -501,7 +503,7 @@ describe("matcher", function()
             { {x=var_scope_a.x}, var_scope_b.x }
         }
         assert.is.error(function() matcher({x=3}) end, 
-            "Possibly trying to apply an unbound variable with same name as bound variable 'x': Make sure to use the same instance of var in the match and its transform (#1)")
+            "Possibly trying to apply an unbound variable with same name as bound variable 'x': Make sure to use the same namespace for vars in the match and its transform (#1)")
     end)
     it("can use variables captured through keys in consequent", function()
         local N = m.namespace()

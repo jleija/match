@@ -1,3 +1,9 @@
+local var_proof = {}        -- unique value to recognize variable functions
+
+local function is_var(x)
+    return type(x) == "table" and x[var_proof]
+end
+
 local function is_empty_table(t)
     for _, _ in pairs(t) do
         return nil
@@ -14,7 +20,7 @@ local function table_size(t)
 end
 
 local function is_array(t)
-    if type(t) ~= "table" then
+    if type(t) ~= "table" or is_var(t) then
         return nil
     end
 
@@ -52,7 +58,7 @@ local function is_function(x)
 end
 
 local function is_table(x)
-    return type(x) == "table" and x or nil
+    return type(x) == "table" and not is_var(x) and x or nil
 end
 
 local function is_like(regex)
@@ -132,8 +138,6 @@ local function nothing_promise() end
 local function optional() end
 local function missing() end
 
-local var_proof = {}        -- unique value to recognize variable functions
-
 local function var(var_name, predicate)
     local bound_value
     return function(value)
@@ -151,23 +155,61 @@ local function var(var_name, predicate)
 end
 
 local key_id = {}
+local unbound = {}
 
 local function namespace()
     local vs = {}
+    local ns = {}
+
+    local v_mt = {
+        __call = function(var_table, ...)
+            local predicate_fns = {...}
+            if #predicate_fns == 0 then
+                -- TODO: temporary. this is to make tests pass where the 
+                    -- value of the variable is accessed as a call with
+                    -- no arguments
+                if var_table.value == unbound then
+                    return nil
+                end
+--                assert(var_table.value ~= unbound, "Variable " .. var_table.name .. " is unbound")
+                return var_table.value
+            end
+            for _, p in ipairs(predicate_fns) do
+                assert(type(p) == "function", "maybe bad usage due to prior usage")
+                -- TODO: maybe take other variables as predicates???
+                --       - or abbreviations of matchers???
+            end
+            var_table.predicates = predicate_fns
+            return var_table
+        end
+    }
+    local function new_var(name)
+        local v = {
+            [var_proof] = name,
+            name = name,
+            value = unbound,
+            namespace = ns,
+            predicates = { }
+        }
+        ns[name] = v
+        setmetatable(v, v_mt)
+        return v
+    end
 
     local function vars()
     --    local vs = {}
         local mt = {
             __index = function(t, k)
-                local v = var(k)
-                vs[k] = v
+--                local v = var(k)
+                local v = ns[k] or new_var(k)
+--                vs[k] = v
                 return v
             end,
-            __call = function(t, var_name, predicate)
-                local v = var(var_name, predicate)
-                vs[var_name] = v
-                return v
-            end
+--            __call = function(t, var_name, predicate)
+--                local v = var(var_name, predicate)
+--                vs[var_name] = v
+--                return v
+--            end
         }
         setmetatable(vs, mt)
         return vs
@@ -182,6 +224,7 @@ local function namespace()
                 local v = vars_instance[k]
                 return {
                     [key_id] = k,
+                    variable = v,
                     vars = vars_instance
                 }
             end
@@ -223,18 +266,38 @@ local function match_root( pattern, target)
                     return nil
                 end, k
             end
-            if type(k) == "function" then
-                local maybe_key_var = k
-                return function(t, key_fn, value)
+            if is_var(k) then
+                return function(t, key_var, value)
                     for k, v in pairs(t) do
-                        local res = match_root_recursive( value, t[k])
+--                        local res = match_root_recursive( value, t[k])
+                        local res = match_root_recursive( value, v)
                         if res ~= nil then 
-                            maybe_key_var(k)
+                            for _, predicate in ipairs(key_var.predicates) do
+                                if not predicate(res) then
+                                    return nil
+                                end
+                            end
+
+                            key_var.value = k
                             return res, k 
                         end
                     end
                     return nil
                 end, k
+            end
+            if type(k) == "function" then
+                assert(false, "deprecated. Not supported anymore. Changed to table variables. Remove me")
+--                local maybe_key_var = k
+--                return function(t, key_fn, value)
+--                    for k, v in pairs(t) do
+--                        local res = match_root_recursive( value, t[k])
+--                        if res ~= nil then 
+--                            maybe_key_var(k)
+--                            return res, k 
+--                        end
+--                    end
+--                    return nil
+--                end, k
             end
             if v == tail_promise and is_array(t) then
                 resolve_promises = true
@@ -306,21 +369,40 @@ local function match_root( pattern, target)
         end
 
         if target == pattern then return target end
-        if type(pattern) == "function" then
-            local v, var_name, maybe_var_proof = pattern(target)
-            if maybe_var_proof == var_proof 
-                    and ( type(var_name) == "string" or type(var_name) == "number" 
-                        or type(var_name) == "boolean") then
-                if captures[var_name] ~= nil and not deepcompare(v, captures[var_name]) then
+
+        if is_var(pattern) then
+            local var_name = pattern.name
+            if captures[var_name] ~= nil and not deepcompare(target, captures[var_name]) then
+                return nil
+            end
+
+            for _, predicate in ipairs(pattern.predicates) do
+                if not predicate(target) then
                     return nil
                 end
-                captures[var_name] = v
-                vars[pattern] = var_name
             end
+
+            captures[var_name] = target
+            pattern.value = target
+            vars[pattern] = var_name
+            return target
+        end
+
+        if type(pattern) == "function" then
+            local v, var_name, maybe_var_proof = pattern(target)
+--            if maybe_var_proof == var_proof 
+--                    and ( type(var_name) == "string" or type(var_name) == "number" 
+--                        or type(var_name) == "boolean") then
+--                if captures[var_name] ~= nil and not deepcompare(v, captures[var_name]) then
+--                    return nil
+--                end
+--                captures[var_name] = v
+--                vars[pattern] = var_name
+--            end
             return v
         end
         if type(target) ~= type(pattern) then return nil end
-        if type(pattern) == "table" then
+        if is_table(pattern) then
             local res = match_empties( pattern, target) 
             if res ~= nil then return res end
 
@@ -356,7 +438,8 @@ local function match_root( pattern, target)
     end
 
     local function expand_key_abbreviations(pattern)
-        if type(pattern) == "table" then
+--        if type(pattern) == "table" then
+        if is_table(pattern) then
             if pattern[key_id] then
                 return pattern.vars[pattern[key_id]]
             end
@@ -474,29 +557,45 @@ local function eval_function_or_var(transform, captures, vars, n)
     else
         v, var_name, maybe_var_proof = transform(captures)
     end
-    if maybe_var_proof == var_proof 
-        and (type(var_name) == "string" 
-                or type(var_name) == "number" 
-                or type(var_name) == "boolean") then
-        for f, name in pairs(vars) do
-            if name == var_name then
-                error("Possibly trying to apply an unbound variable with same name as bound variable '" .. name .. "': Make sure to use the same instance of var in the match and its transform (#" .. n .. ")")
-            end
-        end
-        error("Trying to apply unbound variable '" .. var_name .. "'")
-    end
+--    if maybe_var_proof == var_proof 
+--        and (type(var_name) == "string" 
+--                or type(var_name) == "number" 
+--                or type(var_name) == "boolean") then
+--        for f, name in pairs(vars) do
+--            if name == var_name then
+--                error("Possibly trying to apply an unbound variable with same name as bound variable '" .. name .. "': Make sure to use the same instance of var in the match and its transform (#" .. n .. ")")
+--            end
+--        end
+--        error("Trying to apply unbound variable '" .. var_name .. "'")
+--    end
     return v
 end
 
-local function apply_vars(t, vars)
+local function apply_vars(t, vars, rule_n)
     local res = {}
     for k, v in pairs(t) do
         local key, value = k, v
-        if type(k) == "function" and vars[k] then
-            key = k()
+        if is_var(k) then
+            key = k.value
         end
-        if type(v) == "table" then
-            value = apply_vars(value, vars)
+--        if type(k) == "function" and vars[k] then
+--            key = k()
+--        end
+        if is_var(v) then
+            if v.value == unbound then
+                for _, var_name in pairs(vars) do
+                    if var_name == v.name then
+                        error("Possibly trying to apply an unbound variable with same name as bound variable '" 
+                                .. var_name 
+                                .. "': Make sure to use the same namespace for vars in the match and its transform (#" 
+                                .. (rule_n or "?") .. ")")
+                    end
+                end
+                error("Trying to apply unbound variable '" .. v.name .. "'")
+            end
+            value = v.value
+        elseif type(v) == "table" then
+            value = apply_vars(value, vars, rule_n)
         elseif type(v) == "function" and vars[v] then
             value = v()
         end
@@ -516,6 +615,9 @@ local function apply_match(transform, matched, captures, vars, n)
         return matched
     elseif vars[transform] then
         return transform()
+--    elseif is_var(transform) then
+--        assert(transform.value ~= unbounded, "Trying to apply unbound variable '" .. transform.name .. "'")
+--        return transform.value
     elseif type(transform) == "function" then
         if is_empty_table(captures) then
             return transform(matched)
@@ -525,7 +627,7 @@ local function apply_match(transform, matched, captures, vars, n)
     elseif is_const_transform_type[type(transform)] then
         return transform
     elseif type(transform) == "table" then
-        return apply_vars(transform, vars)
+        return apply_vars(transform, vars, n)
     else
         error("what type of transform is this? " .. type(transform))
     end
@@ -626,6 +728,7 @@ end
 return {
     key = key,
     value = value,
+    unbound = unbound,
     otherwise = otherwise,
     optional = optional,
     missing = missing,
@@ -648,6 +751,7 @@ return {
     as_is = as_is,
     id = id,
     value_if = value_if,
+    is_var = is_var,
     is_number = is_number,
     is_string = is_string,
     is_boolean = is_boolean,
