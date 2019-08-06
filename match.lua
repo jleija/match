@@ -175,7 +175,7 @@ local function namespace()
                 return var_table.value
             end
             for _, p in ipairs(predicate_fns) do
-                assert(type(p) == "function", "maybe bad usage due to prior usage")
+                assert(type(p) == "function", "variable predicates must be functions")
                 -- TODO: maybe take other variables as predicates???
                 --       - or abbreviations of matchers???
             end
@@ -274,7 +274,6 @@ local function match_root( pattern, target)
             if is_var(k) then
                 return function(t, key_var, value)
                     for k, v in pairs(t) do
---                        local res = match_root_recursive( value, t[k])
                         local res = match_root_recursive( value, v)
                         if res ~= nil then 
                             for _, predicate in ipairs(key_var.predicates) do
@@ -290,20 +289,9 @@ local function match_root( pattern, target)
                     return nil
                 end, k
             end
-            if type(k) == "function" then
-                assert(false, "deprecated. Not supported anymore. Changed to table variables. Remove me")
---                local maybe_key_var = k
---                return function(t, key_fn, value)
---                    for k, v in pairs(t) do
---                        local res = match_root_recursive( value, t[k])
---                        if res ~= nil then 
---                            maybe_key_var(k)
---                            return res, k 
---                        end
---                    end
---                    return nil
---                end, k
-            end
+
+            assert(type(k) ~= "function", "Functions as keys are not supported")
+
             if v == tail_promise and is_array(t) then
                 resolve_promises = true
                 return function(t, _, _)
@@ -394,17 +382,7 @@ local function match_root( pattern, target)
         end
 
         if type(pattern) == "function" then
-            local v, var_name, maybe_var_proof = pattern(target)
---            if maybe_var_proof == var_proof 
---                    and ( type(var_name) == "string" or type(var_name) == "number" 
---                        or type(var_name) == "boolean") then
---                if captures[var_name] ~= nil and not deepcompare(v, captures[var_name]) then
---                    return nil
---                end
---                captures[var_name] = v
---                vars[pattern] = var_name
---            end
-            return v
+            return pattern(target)
         end
         if type(target) ~= type(pattern) then return nil end
         if is_table(pattern) then
@@ -443,7 +421,6 @@ local function match_root( pattern, target)
     end
 
     local function expand_key_abbreviations(pattern)
---        if type(pattern) == "table" then
         if is_table(pattern) then
             if pattern[key_id] then
                 return pattern.vars[pattern[key_id]]
@@ -555,27 +532,6 @@ local is_const_transform_type = {
 
 local function matched_value() end
 
-local function eval_function_or_var(transform, captures, vars, n)
-    local v, var_name, maybe_var_proof 
-    if is_array(captures) then
-        v, var_name, maybe_var_proof = transform(unpack(captures))
-    else
-        v, var_name, maybe_var_proof = transform(captures)
-    end
---    if maybe_var_proof == var_proof 
---        and (type(var_name) == "string" 
---                or type(var_name) == "number" 
---                or type(var_name) == "boolean") then
---        for f, name in pairs(vars) do
---            if name == var_name then
---                error("Possibly trying to apply an unbound variable with same name as bound variable '" .. name .. "': Make sure to use the same instance of var in the match and its transform (#" .. n .. ")")
---            end
---        end
---        error("Trying to apply unbound variable '" .. var_name .. "'")
---    end
-    return v
-end
-
 local function apply_vars(t, vars, rule_n)
     local res = {}
     for k, v in pairs(t) do
@@ -627,7 +583,11 @@ local function apply_match(transform, matched, captures, vars, n)
         if is_empty_table(captures) then
             return transform(matched)
         else
-            return eval_function_or_var(transform, captures, vars, n)
+            if is_array(captures) then
+                return transform(unpack(captures))
+            else
+                return transform(captures)
+            end
         end
     elseif is_const_transform_type[type(transform)] then
         return transform
@@ -659,6 +619,7 @@ local function is_subset_of(superset, subset)
             if type(v) == "function" or type(supervalue) == "function" then
                 return false
             end
+            -- TODO: does this really check for subset in vars???
             if is_key(v) then
                 if not is_key(supervalue) or v.name ~= supervalue.name then
                     return false
