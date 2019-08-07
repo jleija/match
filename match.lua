@@ -1,4 +1,5 @@
 local var_proof = {}        -- unique value to recognize variable functions
+local mm = require'mm'
 
 local function is_var(x)
     return type(x) == "table" and rawget(x, var_proof)
@@ -175,7 +176,7 @@ local function namespace()
                 return var_table.value
             end
             for _, p in ipairs(predicate_fns) do
-                assert(type(p) == "function", "variable predicates must be functions")
+                assert(type(p) == "function" or type(p) == "table", "variable predicates must be functions or tables (that get recursively matched)")
                 -- TODO: maybe take other variables as predicates???
                 --       - or abbreviations of matchers???
             end
@@ -258,6 +259,8 @@ local function match_root( pattern, target)
     local vars = {}
     local resolve_promises = false
     local second_pass = false
+    local predicated_variables = {}
+
     local function match_root_recursive(pattern, target)
         local function key_in_table(t, k, v)
             if k == key then
@@ -277,8 +280,12 @@ local function match_root( pattern, target)
                         local res = match_root_recursive( value, v)
                         if res ~= nil then 
                             for _, predicate in ipairs(key_var.predicates) do
-                                if not predicate(res) then
-                                    return nil
+                                if type(predicate) == "function" then
+                                    if not predicate(res) then
+                                        return nil
+                                    end
+                                else
+                                    assert(false, "only functions are supported as key predicates")
                                 end
                             end
 
@@ -370,8 +377,34 @@ local function match_root( pattern, target)
             end
 
             for _, predicate in ipairs(pattern.predicates) do
-                if not predicate(target) then
-                    return nil
+                if type(predicate) == "function" then
+                    if not predicate(target) then
+                        return nil
+                    end
+                elseif type(predicate) == "table" then
+                    -- tentatively assigning variable as if it had matched
+                    -- so that it is populated before going into recursion
+                    -- in case it is self referencing
+                    for i, predicated_var in ipairs(predicated_variables) do
+                        if predicated_var.name == var_name then
+                            if target ~= predicated_var.tentative_value then
+                                return nil
+                            end
+                            captures[var_name] = target
+                            pattern.value = target
+                            vars[pattern] = var_name
+                            return target
+                        end
+                    end
+                    table.insert(predicated_variables, {
+                            name = var_name,
+                            tentative_value = target})
+                    if not match_root_recursive(predicate, target) then
+                        return nil
+                    end
+                    table.remove(predicated_variables)
+                else
+                    assert(false, "only functions and tables are supported as variable predicates")
                 end
             end
 

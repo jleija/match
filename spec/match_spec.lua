@@ -1,4 +1,5 @@
 local m = require("match")
+local mm = require'mm'
 
 describe("match", function()
     it("matches simple values", function()
@@ -379,6 +380,68 @@ describe("match", function()
             local vars = m.find({K.x, K.y}, {{a=8,x=3,y=4}})
             assert.is.equal(4, vars.y)
             assert.is.equal(3, vars.x)
+        end)
+    end)
+    describe("#complex matches", function()
+        it("matches variable conditionally a higher tree with its subtree and an element within that tree, non cyclical", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                A = {
+                    x = 5,
+                },
+                B = {
+                }
+            }
+            t.A.b = t.B
+--            t.B.a = t.A
+            local matching_set, captures, vars = m.match_root(
+                { A = V.A({ b = V.B }) }, t)
+            assert.is.truthy(matching_set)
+--            print("passed-----")
+--            mm(captures)
+            assert.is.equal(captures.B, t.B)
+            assert.is.equal(captures.A.b, t.B)
+        end)
+        it("matches variable conditionally a cyclical tree", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                A = {
+                    x = 5,
+                },
+                B = {
+                }
+            }
+            t.A.b = t.B
+            t.B.a = t.A
+            local matching_set, captures, vars = m.match_root(
+                { A = V.A({ b = V.B({ a = V.A }) }) }, t)
+            assert.is.truthy(matching_set)
+            -- higher level variable A is the same as lower level t.B.a
+            assert.is.equal(captures.B, t.B)
+            assert.is.equal(captures.A.b, t.B)
+            assert.is.equal(captures.B.a, t.A)
+        end)
+        it("fails to match a cyclical pattern in a non-cyclical tree", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                A = {
+                    x = 5,
+                },
+                B = {
+                    a = {}
+                }
+            }
+            t.A.b = t.B
+            local matching_set, captures, vars = m.match_root(
+                { A = V.A({ b = V.B({ a = V.A }) }) }, t)
+            -- variable A at top is not same it B.a
+            assert.is.falsy(matching_set)
         end)
     end)
 end)
