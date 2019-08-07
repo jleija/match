@@ -489,7 +489,9 @@ describe("matcher", function()
         return matched_set
     end
 
-    local V = m.namespace().vars
+    local N = m.namespace()
+    local V = N.vars
+    local K = N.keys
     local unique_object = {}
     local matcher = m.matcher{
         { 1,                          "one" },
@@ -504,6 +506,14 @@ describe("matcher", function()
         { {v={V.a, V.b}},             {p=V.a, q=V.b}},
         { {v={a=V.a, b=V.b}},         {pp=V.a, qq={b=V.b}, {[V.a]=V.b}}},
         { {V=V.x},                    {X=V.x} },
+        { {K.X, K.Y},                 {V.X, V.Y}, 
+                where = function(point) return point.X > point.Y end },
+        { {K.X, K.Y},                 false, 
+                where = function(point) return point.X <= point.Y end },
+        { {">", V[1], V[2]},         true, 
+                where = function(left, right) return left > right end },
+        { {">", V[1], V[2]},         false, 
+                where = function(left, right) return left < right end },
         { {F=V.x},                    m.as_is(f) },
         { {a=1,b=2},                  receive_match },
         { m.otherwise,                "catch-all value" },
@@ -549,6 +559,14 @@ describe("matcher", function()
         assert.is.same({X=5}, matcher{V=5})
         assert.is.same({X="a"}, matcher{V="a"})
     end)
+    it("can use an optional where condition to further test the patterns", function()
+        assert.is.same({2,1}, matcher{X=2,Y=1})
+        assert.is.equal(false, matcher{X=1,Y=2})
+    end)
+    it("can use an optional #where condition with positional parameters", function()
+        assert.is.equal(true, matcher{">", 2, 1})
+        assert.is.equal(false, matcher{">", 1, 2})
+    end)
     it("should not match a non-root pattern", function()
         assert.is.equal("catch-all value", matcher({y={x=1}}))
 
@@ -571,21 +589,6 @@ describe("matcher", function()
         assert.is_nil(matcher({x=1}))
         assert.is.truthy(matcher(unique))
     end)
---    it("Don't know how to test this: should ignore metamethods", function()
---        local matcher = m.matcher{
---            { 1, "one" }
---        }
---        local target = {
---            x = {1}
---        }
---        local mt = {
---            __index = function(t,k) return 0 end,
---            __newindex = function(t,k,v) return 1 end
---        }
---        setmetatable(target, mt)
---        assert.is_nil(matcher(target))
---    end)
-
     it("errors out when trying to reference a variable that hasn't been bound", function()
         local var_scope = m.namespace().vars
         local matcher = m.matcher{

@@ -709,7 +709,7 @@ end
 local function check_specific_to_general_ordering(rules)
     for i=1,#rules do
         for j=i+1,#rules do
-            if is_subset_of(rules[j][1], rules[i][1]) then
+            if not rules[i].where and is_subset_of(rules[j][1], rules[i][1]) then
                 error("Unreachable rule " 
                        .. j .. " due to more general, or duplicated, prior rule " 
                        .. i)
@@ -739,8 +739,11 @@ local function matcher(match_pairs)
         for i, match_pair in ipairs(match_pairs) do
             local matched, captures, vars = match_root(match_pair[1], target)
             if matched ~= nil then
---                return apply_match(match_pair[2], matched, captures, vars, i), matched, i
-                return apply_match(match_pair[2], matched, captures, vars, i), matched, vars, i
+                if not match_pair.where
+                   or is_array(captures) and match_pair.where(unpack(captures))
+                   or not is_array(captures) and match_pair.where(captures, matched) then
+                    return apply_match(match_pair[2], matched, captures, vars, i), matched, vars, i
+                end
             end
         end
     end
