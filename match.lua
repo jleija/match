@@ -1,5 +1,4 @@
 local var_proof = {}        -- unique value to recognize variable functions
-local mm = require'mm'
 
 local function is_var(x)
     return type(x) == "table" and rawget(x, var_proof)
@@ -176,9 +175,7 @@ local function namespace()
                 return var_table.value
             end
             for _, p in ipairs(predicate_fns) do
-                assert(type(p) == "function" or type(p) == "table", "variable predicates must be functions or tables (that get recursively matched)")
-                -- TODO: maybe take other variables as predicates???
-                --       - or abbreviations of matchers???
+                assert(type(p) == "function" or type(p) == "table", "variable predicates must be functions or tables (that can get recursively matched)")
             end
             var_table.predicates = predicate_fns
             return var_table
@@ -198,19 +195,11 @@ local function namespace()
     end
 
     local function vars()
-    --    local vs = {}
         local mt = {
             __index = function(t, k)
---                local v = var(k)
                 local v = ns[k] or new_var(k)
---                vs[k] = v
                 return v
-            end,
---            __call = function(t, var_name, predicate)
---                local v = var(var_name, predicate)
---                vs[var_name] = v
---                return v
---            end
+            end
         }
         setmetatable(vs, mt)
         return vs
@@ -220,15 +209,29 @@ local function namespace()
 
     local function keys()
         local keys_namespace = {}
+        local k_mt = {
+            __call = function(key_table, ...)
+                local predicate_fns = {...}
+                assert(#predicate_fns > 0, "At least one predicate (function or table) should be provided when parenthesis are used after a key")
+                for _, p in ipairs(predicate_fns) do
+                    assert(type(p) == "function" or type(p) == "table", "keys predicates must be functions or tables (that can get recursively matched)")
+                end
+                key_table.predicates = predicate_fns
+                return key_table
+            end
+        }
         local mt = {
             __index = function(t, k)
                 local v = vars_instance[k]
-                return {
+                local key = {
                     [key_id] = k,
                     name = k,
                     variable = v,
-                    vars = vars_instance
+                    vars = vars_instance,
+                    predicates = false
                 }
+                setmetatable(key, k_mt)
+                return key
             end
         }
         setmetatable(keys_namespace, mt)
@@ -382,9 +385,6 @@ local function match_root( pattern, target)
                         return nil
                     end
                 elseif type(predicate) == "table" then
-                    -- tentatively assigning variable as if it had matched
-                    -- so that it is populated before going into recursion
-                    -- in case it is self referencing
                     for i, predicated_var in ipairs(predicated_variables) do
                         if predicated_var.name == var_name then
                             if target ~= predicated_var.tentative_value then
@@ -461,7 +461,20 @@ local function match_root( pattern, target)
             local expanded_pattern = {}
             for k, v in pairs(pattern) do
                 if is_table(v) and v[key_id] then
-                    expanded_pattern[v[key_id]] = v.vars[v[key_id]]
+                    local new_var = v.vars[v[key_id]]
+                    if v.predicates then
+                        local expanded_predicates = {}
+                        for _, predicate in ipairs(v.predicates) do
+                            if type(predicate) == "table" then
+                                table.insert(expanded_predicates, expand_key_abbreviations(predicate))
+                            else
+                                table.insert(expanded_predicates, predicate)
+                            end
+                        end
+                        expanded_pattern[v[key_id]] = new_var(unpack(expanded_predicates))
+                    else
+                        expanded_pattern[v[key_id]] =  new_var
+                    end
                 else
                     expanded_pattern[k] = expand_key_abbreviations(v)
                 end

@@ -1,5 +1,4 @@
 local m = require("match")
-local mm = require'mm'
 
 describe("match", function()
     it("matches simple values", function()
@@ -269,7 +268,7 @@ describe("match", function()
             assert.is.equal("just x", captures.x)
         end)
     end)
-    describe("#variable capture", function()
+    describe("variable capture", function()
         local V = m.namespace().vars
         it("can do variable capture of simple value", function()
             local matched, captures = m.match(V.v, 55)
@@ -382,7 +381,25 @@ describe("match", function()
             assert.is.equal(3, vars.x)
         end)
     end)
-    describe("#complex matches", function()
+    describe("complex conditional nested key/variable matches", function()
+        it("matches keys conditionally a higher tree with its subtree and an element within that tree, non cyclical", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                A = {
+                    x = 5,
+                },
+                B = {
+                }
+            }
+            t.A.b = t.B
+            local matching_set, captures, vars = m.match_root(
+                { K.A({ K.b }) }, t)
+            assert.is.truthy(matching_set)
+            assert.is.equal(captures.b, t.B)
+            assert.is.equal(captures.A, t.A)
+        end)
         it("matches variable conditionally a higher tree with its subtree and an element within that tree, non cyclical", function()
             local N = m.namespace()
             local K = N.keys
@@ -395,16 +412,34 @@ describe("match", function()
                 }
             }
             t.A.b = t.B
---            t.B.a = t.A
             local matching_set, captures, vars = m.match_root(
                 { A = V.A({ b = V.B }) }, t)
             assert.is.truthy(matching_set)
---            print("passed-----")
---            mm(captures)
             assert.is.equal(captures.B, t.B)
             assert.is.equal(captures.A.b, t.B)
         end)
-        it("matches variable conditionally a cyclical tree", function()
+        it("matches key conditionally in a cyclical tree", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                A = {
+                    x = 5,
+                },
+                B = {
+                }
+            }
+            t.A.B = t.B
+            t.B.A = t.A
+            local matching_set, captures, vars = m.match_root(
+                { K.A({ K.B({ K.A }) }) }, t)
+            assert.is.truthy(matching_set)
+            -- higher level variable A is the same as lower level t.B.a
+            assert.is.equal(captures.B, t.B)
+            assert.is.equal(captures.A.B, t.B)
+            assert.is.equal(captures.B.A, t.A)
+        end)
+        it("matches variable conditionally in a cyclical tree", function()
             local N = m.namespace()
             local K = N.keys
             local V = N.vars
