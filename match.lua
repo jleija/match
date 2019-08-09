@@ -138,23 +138,8 @@ local function nothing_promise() end
 local function optional() end
 local function missing() end
 
-local function var(var_name, predicate)
-    local bound_value
-    return function(value)
-        if value == nil then
-            return bound_value, var_name
-        end
-        if predicate and not predicate(value) then
-            return nil, nil
-        end
---        if bound_value == nil then    -- sticky bound or updatable?
-            bound_value = value
---        end
-        return value, var_name, var_proof
-    end
-end
-
 local key_id = {}
+local transform_id = {}
 local unbound = {}
 
 local function namespace()
@@ -240,14 +225,51 @@ local function namespace()
 
     local keys_instance = keys()
 
+    local function transforms()
+        local transforms_namespace = {}
+        local t_mt = {
+            __call = function(t, ...)
+                local transform_fns = {...}
+                assert(#transform_fns > 0, "At least one transform function should be provided for var transforms")
+                for _, p in ipairs(transform_fns) do
+                    assert(type(p) == "function", "var transforms must be functions")
+                end
+                t.transforms = transform_fns
+                return t
+            end
+        }
+        local mt = {
+            __index = function(t, k)
+                local v = vars_instance[k]
+                local key = {
+                    [transform_id] = k,
+                    name = k,
+                    variable = v,
+                    vars = vars_instance,
+                    transforms = false
+                }
+                setmetatable(key, t_mt)
+                return key
+            end
+        }
+        setmetatable(transforms_namespace, mt)
+        return transforms_namespace
+    end
+
+    local transforms_instance = transforms()
     return {
         vars = vars_instance,
-        keys = keys_instance
+        keys = keys_instance,
+        transforms = transforms_instance
     }
 end
 
 local function is_key(x)
     return type(x) == "table" and rawget(x, key_id)
+end
+
+local function is_transform(x)
+    return type(x) == "table" and rawget(x, transform_id)
 end
 
 local function match_empties(a, b)
@@ -585,9 +607,6 @@ local function apply_vars(t, vars, rule_n)
         if is_var(k) then
             key = k.value
         end
---        if type(k) == "function" and vars[k] then
---            key = k()
---        end
         if is_var(v) then
             if v.value == unbound then
                 for _, var_name in pairs(vars) do
@@ -601,10 +620,16 @@ local function apply_vars(t, vars, rule_n)
                 error("Trying to apply unbound variable '" .. v.name .. "'")
             end
             value = v.value
+        elseif is_transform(v) then
+            value = v.variable.value
+            if value == unbound then
+                error("Unbound variable " .. v.variable.name .. " in transform")
+            end
+            for _, p in ipairs(v.transforms) do
+                value = p(value)
+            end
         elseif type(v) == "table" then
             value = apply_vars(value, vars, rule_n)
-        elseif type(v) == "function" and vars[v] then
-            value = v()
         end
         res[key] = value
     end

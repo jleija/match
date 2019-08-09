@@ -563,7 +563,7 @@ describe("matcher", function()
         assert.is.same({2,1}, matcher{X=2,Y=1})
         assert.is.equal(false, matcher{X=1,Y=2})
     end)
-    it("can use an optional #where condition with positional parameters", function()
+    it("can use an optional where condition with positional parameters", function()
         assert.is.equal(true, matcher{">", 2, 1})
         assert.is.equal(false, matcher{">", 1, 2})
     end)
@@ -663,6 +663,58 @@ describe("matcher", function()
 
             assert.is_falsy(match_fn)
             assert.is.truthy(err:find("nil antecedent in rule #1, in nil_antecedent matcher"))
+        end)
+    end)
+    describe("variable transformations", function()
+        local N = m.namespace()
+        local K = N.keys
+        local V = N.vars
+        local T = N.transforms
+
+        it("applies consequent transformations to vars", function()
+            local function double(x) return 2 * x end
+            local p = m.matcher{
+                name = "transform",
+                { { K.a }, { x = T.a(double) } }
+            }
+            assert.is.same({ x = 10 }, p{ a = 5 })
+        end)
+        it("can do both: predicates and transformations to vars", function()
+            local function is_even(x) return x % 2 == 0 end
+            local function double(x) return 2 * x end
+            local p = m.matcher{
+                name = "transform",
+                { { K.a(is_even) }, { x = T.a(double) } }
+            }
+            assert.is.same({ x = 8 }, p{ a = 4 })
+            assert.is_nil(p{ a = 3 })
+        end)
+        it("chains multiple transformations in a var", function()
+            local function is_even(x) return x % 2 == 0 end
+            local function double(x) return 2 * x end
+            local p = m.matcher{
+                name = "transform",
+                { { K.a(is_even) }, { x = T.a(double, double) } }
+            }
+            assert.is.same({ x = 16 }, p{ a = 4 })
+            assert.is_nil(p{ a = 3 })
+        end)
+        it("does independent transformations on same var", function()
+            local function is_even(x) return x % 2 == 0 end
+            local function double(x) return 2 * x end
+            local p = m.matcher{
+                name = "transform",
+                { { K.a(is_even) }, { x = T.a(double, double), even = T.a(is_even) } }
+            }
+            assert.is.same({ x = 16, even = true }, p{ a = 4 })
+        end)
+        it("fails to perform a transformation on an unbound var", function()
+            local function double(x) return 2 * x end
+            local p = m.matcher{
+                name = "transform",
+                { { K.a }, { x = T.b(double) } }
+            }
+            assert.is.error(function() p{ a = 4 } end, "Unbound variable b in transform")
         end)
     end)
 end)
