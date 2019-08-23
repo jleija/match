@@ -460,6 +460,93 @@ describe("match", function()
             assert.is.equal(captures.A.b, t.B)
             assert.is.equal(captures.B.a, t.A)
         end)
+        it("matches variables somewhere in a tree", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                A = {
+                    { a = { x = 1 } },
+                    { b = { y = 2 } },
+                    { c = { z = 3 } }
+                },
+                B = {
+                    { a = { x = 4 } },
+                    { b = { y = 5 } },
+                    { c = { z = 6 } }
+                }
+            }
+            local matching_set, captures, vars = m.match_root(
+                { [m.key] = V.top{ [m.key] = V.element{ [m.key] = V.leaf{ [V.xyz] = 5 } } } }, t)
+            assert.is.same({b={y=5}}, captures.element)
+            assert.is.same({y=5}, captures.leaf)
+            assert.is.same("y", captures.xyz)
+        end)
+        it("matches variables somewhere in a tree, including variables for keys", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                A = {
+                    { a = { x = 1 } },
+                    { b = { y = 2 } },
+                    { c = { z = 3 } }
+                },
+                B = {
+                    { a = { x = 4 } },
+                    { b = { y = 5 } },
+                    { c = { z = 6 } }
+                }
+            }
+            local matching_set, captures, vars = m.match_root(
+                { [V.top_key] = V.top{ [V.index] = V.element{ [V.abc_key] = V.leaf{ [V.xyz] = 5 } } } }, t)
+            assert.is.equal("B", captures.top_key)
+            assert.is.equal(2, captures.index)
+            assert.is.same({b={y=5}}, captures.element)
+            assert.is.equal("b", captures.abc_key)
+            assert.is.same({y=5}, captures.leaf)
+            assert.is.same("y", captures.xyz)
+        end)
+        it("matches variables scattered recursively in a tree under values, not keys", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                A = {
+                    { a = { x = 1 } },
+                    { b = { y = 2 } },
+                    { c = { z = 3 } }
+                }
+            }
+            local matching_set, captures, vars = m.match_root(
+                { A = V.A{ V.first{ a = V.leaf{ x = V.x } } } }, t)
+            assert.is.same({a={x=1}}, captures.first)
+            assert.is.same({x=1}, captures.leaf)
+            assert.is.same(1, captures.x)
+        end)
+        it("errors meaningfully when trying to do reconciliation of vars within a key variable nested search", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                target = 6,
+                A = {
+                    { a = { x = 1 } },
+                    { b = { y = 2 } },
+                    { c = { z = 3 } }
+                },
+                B = {
+                    { a = { x = 4 } },
+                    { b = { y = 5 } },
+                    { c = { z = 6 } }
+                }
+            }
+            assert.is.error(function()
+                local matching_set, captures, vars = m.match_root(
+                    { target = V.target,
+                      [V.top_key] = V.top{ [V.index] = V.element{ [V.abc_key] = V.leaf{ [V.xyz] = V.target } } } }, t)
+                end, "Variable reconciliation not supported for key matching. Key: target. Use another variable name if reconciliation is not desired.")
+        end)
         it("fails to match a cyclical pattern in a non-cyclical tree", function()
             local N = m.namespace()
             local K = N.keys

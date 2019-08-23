@@ -291,8 +291,12 @@ local function match_root( pattern, target)
             if k == key then
                 return function(t, key_fn, value)
                     for k, v in pairs(t) do
-                        local res = match_root_recursive( value, t[k])
+                        local res, subcaptures = match_root( value, t[k])
                         if res ~= nil then 
+                            for k, v in pairs(subcaptures) do
+                                captures[k] = v
+                            end
+
                             return res, k 
                         end
                     end
@@ -302,8 +306,24 @@ local function match_root( pattern, target)
             if is_var(k) then
                 return function(t, key_var, value)
                     for k, v in pairs(t) do
-                        local res = match_root_recursive( value, v)
+                        local res, subcaptures = match_root( value, v)
                         if res ~= nil then 
+                            for k, v in pairs(subcaptures) do
+                                assert(not captures[k], 
+                                        "Variable reconciliation not supported for key matching. Key: "
+                                        .. k .. ". Use another variable name if reconciliation is not desired."
+                                        )
+                                -- NOTE: This feature needs search/backtracking 
+                                -- or continuations which are not implemented 
+                                -- yet. Not easy because the other occurrence
+                                -- of the same variable might also be within
+                                -- another array/table that is being iterated
+                                -- as well, so all possibilities (cross product)
+                                -- need to be tried/searched. This almost
+                                -- implies either continuations in the for-looping
+                                -- or a backtracking engine. Both complex.
+                                -- Maybe later
+                            end
                             for _, predicate in ipairs(key_var.predicates) do
                                 if type(predicate) == "function" then
                                     if not predicate(res) then
@@ -313,6 +333,12 @@ local function match_root( pattern, target)
                                     assert(false, "only functions are supported as key predicates")
                                 end
                             end
+
+                            for k, v in pairs(subcaptures) do
+                                captures[k] = v
+                            end
+
+                            captures[key_var.name] = k
 
                             key_var.value = k
                             return res, k 
