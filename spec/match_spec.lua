@@ -565,6 +565,22 @@ describe("match", function()
             -- variable A at top is not same it B.a
             assert.is.falsy(matching_set)
         end)
+        it("Expands K abbreviations in variable predicates", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                { a = "a", b = 1 },
+                { a = "b", b = 2 },
+                { a = "c", b = 3 },
+                { a = "d", b = 4 },
+                { a = "e", b = 5 },
+            }
+            local matching_set, captures = m.match_root(
+                { [V.index] = V.element{ a = "c", K.b } }, t)
+            assert.is.equal(3, captures.b)
+            assert.is.equal("c", captures.element.a)
+        end)
     end)
 end)
 

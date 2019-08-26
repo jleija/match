@@ -286,6 +286,38 @@ local function match_root( pattern, target)
     local second_pass = false
     local predicated_variables = {}
 
+    local function expand_key_abbreviations(pattern)    -- {{{
+        if is_table(pattern) then
+            if pattern[key_id] then
+                return pattern.vars[pattern[key_id]]
+            end
+            local expanded_pattern = {}
+            for k, v in pairs(pattern) do
+                if is_table(v) and v[key_id] then
+                    local new_var = v.vars[v[key_id]]
+                    if v.predicates then
+                        local expanded_predicates = {}
+                        for _, predicate in ipairs(v.predicates) do
+                            if type(predicate) == "table" then
+                                table.insert(expanded_predicates, expand_key_abbreviations(predicate))
+                            else
+                                table.insert(expanded_predicates, predicate)
+                            end
+                        end
+                        expanded_pattern[v[key_id]] = new_var(unpack(expanded_predicates))
+                    else
+                        expanded_pattern[v[key_id]] =  new_var
+                    end
+                else
+                    expanded_pattern[k] = expand_key_abbreviations(v)
+                end
+            end
+            return expanded_pattern
+        else
+            return pattern
+        end
+    end -- }}}
+
     local function match_root_recursive(pattern, target)
         local function key_in_table(t, k, v)
             if k == key then
@@ -447,10 +479,14 @@ local function match_root( pattern, target)
                     table.insert(predicated_variables, {
                             name = var_name,
                             tentative_value = target})
-                    if not match_root_recursive(predicate, target) then
+--                    local res, subcaptures = match_root_recursive(predicate, target)
+                    local expanded_pattern = expand_key_abbreviations(predicate)
+                    local res, subcaptures = match_root_recursive(expanded_pattern, target)
+                    table.remove(predicated_variables)
+
+                    if not res then
                         return nil
                     end
-                    table.remove(predicated_variables)
                 else
                     assert(false, "only functions and tables are supported as variable predicates")
                 end
@@ -499,38 +535,6 @@ local function match_root( pattern, target)
             return did_match and at_least_one and matches or nil
         end
         return nil
-    end
-
-    local function expand_key_abbreviations(pattern)
-        if is_table(pattern) then
-            if pattern[key_id] then
-                return pattern.vars[pattern[key_id]]
-            end
-            local expanded_pattern = {}
-            for k, v in pairs(pattern) do
-                if is_table(v) and v[key_id] then
-                    local new_var = v.vars[v[key_id]]
-                    if v.predicates then
-                        local expanded_predicates = {}
-                        for _, predicate in ipairs(v.predicates) do
-                            if type(predicate) == "table" then
-                                table.insert(expanded_predicates, expand_key_abbreviations(predicate))
-                            else
-                                table.insert(expanded_predicates, predicate)
-                            end
-                        end
-                        expanded_pattern[v[key_id]] = new_var(unpack(expanded_predicates))
-                    else
-                        expanded_pattern[v[key_id]] =  new_var
-                    end
-                else
-                    expanded_pattern[k] = expand_key_abbreviations(v)
-                end
-            end
-            return expanded_pattern
-        else
-            return pattern
-        end
     end
 
     local expanded_pattern = expand_key_abbreviations(pattern)
