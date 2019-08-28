@@ -140,7 +140,6 @@ local function missing() end
 
 local key_id = {}
 local transform_id = {}
-local unbound = {}
 
 local function namespace()
     local vs = {}
@@ -266,6 +265,7 @@ local function namespace()
     return {
         vars = vars_instance,
         keys = keys_instance,
+        values = var_values,
         transforms = transforms_instance
     }
 end
@@ -561,6 +561,14 @@ local function match_root( pattern, target)
     if resolve_promises then
         second_pass = true
         matched_table = match_root_recursive(matched_table, target)
+    end
+
+    if matched_table == nil then
+        -- clear bound variables when match fails
+        for var, name in pairs(vars) do
+            var:set(nil)
+        end
+        return nil
     end
     
     return matched_table, captures, vars

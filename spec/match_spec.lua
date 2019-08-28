@@ -580,6 +580,75 @@ describe("match", function()
             assert.is.equal(3, captures.b)
             assert.is.equal("c", captures.element.a)
         end)
+        describe("Finds deep patterns and matches multiple variables", function()
+            local N = m.namespace()
+            local K = N.keys
+            local V = N.vars
+            local t = {
+                I = {
+                    A = {
+                        { a = { x = 1, y = 2, z = 3 }},
+                        { a = { x = 4, y = 5, z = 6 }},
+                        { a = { x = 7, y = 8, z = 9 }},
+                    },
+                    B = {
+                        { a = { x = 10, y = 20, z = 30 }},
+                        { a = { x = 40, y = 50, z = 60 }},
+                        { a = { x = 70, y = 80, z = 90 }},
+                    }
+                },
+                II = {
+                    A = {
+                        { a = { x = 100, y = 200, z = 300 }},
+                        { a = { x = 400, y = 500, z = 600 }},
+                        { a = { x = 700, y = 800, z = 900 }},
+                    }
+                },
+            }
+            it("does not assign variables if they don't match", function()
+                local matching_set, captures = m.match_root(
+                    { [V.I_key] = V.I_value{ [V.A_key] = V.A_value{ [V.idx] = V.e{ [V.l] = { K.x, K.z, [V.Y] = 1234 } } } } }, t)
+                assert.is.falsy(matching_set)
+                assert.is_nil(V.A_value:get())
+                assert.is_nil(V.l:get())
+                assert.is_nil(V.Y:get())
+                assert.is_nil(V.x:get())
+                assert.is_nil(V.z:get())
+            end)
+            it("solves a deep and complex match", function()
+                local matching_set, captures = m.match_root(
+                    { [V.I_key] = V.I_value{ [V.A_key] = V.A_value{ [V.idx] = V.e{ [V.l] = { K.x, K.z, [V.Y] = 500 } } } } }, t)
+                assert.is.truthy(matching_set)
+                assert.is.equal("y", V.Y:get())
+                assert.is.equal(400, V.x:get())
+                assert.is.equal(600, V.z:get())
+            end)
+            it("solves a deep and complex match twice", function()
+                local matching_set, captures = m.match_root(
+                    { [V.I_key] = V.I_value{ [V.A_key] = V.A_value{ [V.idx] = V.e{ [V.l] = { K.x, K.z, [V.Y] = 500 } } } } }, t)
+                assert.is.truthy(matching_set)
+                assert.is.equal("y", V.Y:get())
+                assert.is.equal(400, V.x:get())
+                assert.is.equal(600, V.z:get())
+
+                local matching_set, captures = m.match_root(
+                    { [V.I_key] = V.I_value{ [V.A_key] = V.A_value{ [V.idx] = V.e{ [V.l] = { K.x, z = V.z, [V.Y] = 50 } } } } }, t)
+                assert.is.truthy(matching_set)
+                assert.is.equal("B", V.A_key:get())
+                assert.is.equal("y", V.Y:get())
+                assert.is.equal(40, V.x:get())
+                assert.is.equal(60, V.z:get())
+            end)
+            it("keeps variables values in the the namespace", function()
+                local matching_set, captures = m.match_root(
+                    { [V.I_key] = V.I_value{ [V.A_key] = V.A_value{ [V.idx] = V.e{ [V.l] = { K.x, K.z, [V.Y] = 500 } } } } }, t)
+                assert.is.truthy(matching_set)
+                local vars = N.values
+                assert.is.equal("y", vars.Y)
+                assert.is.equal(400, vars.x)
+                assert.is.equal(600, vars.z)
+            end)
+        end)
     end)
 
     describe("matching and variable namespaces", function()
