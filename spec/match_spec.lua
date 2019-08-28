@@ -583,7 +583,7 @@ describe("match", function()
     end)
 
     describe("matching and variable namespaces", function()
-        it("a match should not affect/#override another match with same variables", function()
+        it("a match should not affect/override another match with same variables", function()
             local N = m.namespace()
             local V = N.vars
 

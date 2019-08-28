@@ -449,8 +449,11 @@ local function match_root( pattern, target)
                     return v(), k
                 end, k
             end
-            if t[k] ~= nil then 
-                return function(t, k, v) return match_root_recursive( v, t[k]), k end, k
+
+            -- in terra, when t does not have k, it throws a global exception
+            local status, value = pcall(function() return t[k] end)
+            if status and value ~= nil then
+                return function(t, k, v) return match_root_recursive( v, value), k end, k
             else
                 return function() return nil, nil end, k
             end
