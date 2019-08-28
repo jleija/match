@@ -145,6 +145,7 @@ local unbound = {}
 local function namespace()
     local vs = {}
     local ns = {}
+    local var_values = {}
 
     local v_mt = {
         __call = function(var_table, ...)
@@ -153,11 +154,7 @@ local function namespace()
                 -- TODO: temporary. this is to make tests pass where the 
                     -- value of the variable is accessed as a call with
                     -- no arguments
-                if var_table.value == unbound then
-                    return nil
-                end
---                assert(var_table.value ~= unbound, "Variable " .. var_table.name .. " is unbound")
-                return var_table.value
+                return var_values[var_table.name]
             end
             for _, p in ipairs(predicate_fns) do
                 assert(type(p) == "function" or type(p) == "table", "variable predicates must be functions or tables (that can get recursively matched)")
@@ -166,15 +163,23 @@ local function namespace()
             return var_table
         end
     }
+    local function set(var, value)
+        var_values[var.name] = value
+    end
+    local function get(var)
+        return var_values[var.name]
+    end
     local function new_var(name)
         local v = {
             [var_proof] = name,
             name = name,
-            value = unbound,
             namespace = ns,
-            predicates = { }
+            predicates = { },
+            set = set,
+            get = get
         }
         ns[name] = v
+--        table.insert(ns, v)
         setmetatable(v, v_mt)
         return v
     end
@@ -182,7 +187,8 @@ local function namespace()
     local function vars()
         local mt = {
             __index = function(t, k)
-                local v = ns[k] or new_var(k)
+--                local v = ns[k] or new_var(k)
+                local v = new_var(k)
                 return v
             end
         }
@@ -279,7 +285,6 @@ local function match_empties(a, b)
 end
 
 local function match_root( pattern, target)
---    local V = vars()
     local captures = {}
     local vars = {}
     local resolve_promises = false
@@ -372,7 +377,7 @@ local function match_root( pattern, target)
 
                             captures[key_var.name] = k
 
-                            key_var.value = k
+                            key_var:set(k)
                             return res, k 
                         end
                     end
@@ -471,7 +476,7 @@ local function match_root( pattern, target)
                                 return nil
                             end
                             captures[var_name] = target
-                            pattern.value = target
+                            pattern:set(target)
                             vars[pattern] = var_name
                             return target
                         end
@@ -479,7 +484,7 @@ local function match_root( pattern, target)
                     table.insert(predicated_variables, {
                             name = var_name,
                             tentative_value = target})
---                    local res, subcaptures = match_root_recursive(predicate, target)
+
                     local expanded_pattern = expand_key_abbreviations(predicate)
                     local res, subcaptures = match_root_recursive(expanded_pattern, target)
                     table.remove(predicated_variables)
@@ -492,8 +497,18 @@ local function match_root( pattern, target)
                 end
             end
 
+            -- variable might have been involved in a pending self-referencing
+            -- match
+            for i, predicated_var in ipairs(predicated_variables) do
+                if predicated_var.name == var_name then
+                    if target ~= predicated_var.tentative_value then
+                        return nil
+                    end
+                end
+            end
+
             captures[var_name] = target
-            pattern.value = target
+            pattern:set(target)
             vars[pattern] = var_name
             return target
         end
@@ -631,28 +646,36 @@ local is_const_transform_type = {
 local function matched_value() end
 
 local function apply_vars(t, vars, rule_n)
+    if is_var(t) then 
+        local v = t:get()
+        if v == nil then
+            for _, var_name in pairs(vars) do
+                if var_name == t.name then
+                    error("Possibly trying to apply an unbound variable with same name as bound variable '" 
+                            .. var_name 
+                            .. "': Make sure to use the same namespace for vars in the match and its transform (#" 
+                            .. (rule_n or "?") .. ")")
+                end
+            end
+            error("Trying to apply unbound variable '" .. t.name .. "'")
+        end
+        return v
+    end
     local res = {}
     for k, v in pairs(t) do
         local key, value = k, v
         if is_var(k) then
-            key = k.value
+            local var_k = k:get()
+            if var_k == nil then
+                error("Unbound key variable " .. k.name .. " in transform")
+            end
+            key = var_k
         end
         if is_var(v) then
-            if v.value == unbound then
-                for _, var_name in pairs(vars) do
-                    if var_name == v.name then
-                        error("Possibly trying to apply an unbound variable with same name as bound variable '" 
-                                .. var_name 
-                                .. "': Make sure to use the same namespace for vars in the match and its transform (#" 
-                                .. (rule_n or "?") .. ")")
-                    end
-                end
-                error("Trying to apply unbound variable '" .. v.name .. "'")
-            end
-            value = v.value
+            value = apply_vars(v, vars, rule_n)
         elseif is_transform(v) then
-            value = v.variable.value
-            if value == unbound then
+            value = v.variable:get()
+            if value == nil then
                 error("Unbound variable " .. v.variable.name .. " in transform")
             end
             for _, p in ipairs(v.transforms) do
@@ -675,11 +698,6 @@ local function apply_match(transform, matched, captures, vars, n)
         return transform
     elseif transform == matched_value then
         return matched
-    elseif vars[transform] then
-        return transform()
---    elseif is_var(transform) then
---        assert(transform.value ~= unbounded, "Trying to apply unbound variable '" .. transform.name .. "'")
---        return transform.value
     elseif type(transform) == "function" then
         if is_empty_table(captures) then
             return transform(matched)
@@ -807,7 +825,6 @@ end
 return {
     key = key,
     value = value,
-    unbound = unbound,
     otherwise = otherwise,
     optional = optional,
     missing = missing,
@@ -818,8 +835,6 @@ return {
     nothing_else = nothing_promise,
     tail = tail_promise,
     namespace = namespace,
---    keys = keys,
---    vars = vars,
     match_root = match_root,
     match = match,
     apply_vars = apply_vars,

@@ -337,8 +337,7 @@ describe("match", function()
         it("finds an element in an array returning its index in a variable", function()
             assert.is.truthy(m.match({[V.index] = "b"}, {"a", "b", "c"}))
 
-            assert.is.equal(2, V.index.value)
-            assert.is.equal(2, V.index())
+            assert.is.equal(2, V.index:get())
         end)
         it("can retrieve the variables after their use (needed for pattern dispatch)", function()
             local X, Y = V.x, V.y
@@ -547,7 +546,7 @@ describe("match", function()
                       [V.top_key] = V.top{ [V.index] = V.element{ [V.abc_key] = V.leaf{ [V.xyz] = V.target } } } }, t)
                 end, "Variable reconciliation not supported for key matching. Key: target. Use another variable name if reconciliation is not desired.")
         end)
-        it("fails to match a cyclical pattern in a non-cyclical tree", function()
+        it("fails to match a cyclical pattern in a noncyclical tree", function()
             local N = m.namespace()
             local K = N.keys
             local V = N.vars
@@ -580,6 +579,23 @@ describe("match", function()
                 { [V.index] = V.element{ a = "c", K.b } }, t)
             assert.is.equal(3, captures.b)
             assert.is.equal("c", captures.element.a)
+        end)
+    end)
+
+    describe("matching and variable namespaces", function()
+        it("a match should not affect/#override another match with same variables", function()
+            local N = m.namespace()
+            local V = N.vars
+
+            local t1 = { a = { b = 1 } }
+            local t2 = { a = { c = 1 } }
+            local pattern1 = { a = V.x{ b = 1 } }
+            local pattern2 = { a = V.x{ c = 1 } }
+
+            assert.is.truthy(m.match_root(pattern1, t1))
+            assert.is.truthy(m.match_root(pattern2, t2))
+            assert.is_nil(m.match_root(pattern1, t2))
+            assert.is_nil(m.match_root(pattern2, t1))
         end)
     end)
 end)
