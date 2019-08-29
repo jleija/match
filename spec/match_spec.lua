@@ -528,13 +528,13 @@ describe("match", function()
             local K = N.keys
             local V = N.vars
             local t = {
-                target = 6,
-                A = {
+                6,
+                {
                     { a = { x = 1 } },
                     { b = { y = 2 } },
                     { c = { z = 3 } }
                 },
-                B = {
+                {
                     { a = { x = 4 } },
                     { b = { y = 5 } },
                     { c = { z = 6 } }
@@ -542,7 +542,7 @@ describe("match", function()
             }
             assert.is.error(function()
                 local matching_set, captures, vars = m.match_root(
-                    { target = V.target,
+                    { V.target,
                       [V.top_key] = V.top{ [V.index] = V.element{ [V.abc_key] = V.leaf{ [V.xyz] = V.target } } } }, t)
                 end, "Variable reconciliation not supported for key matching. Key: target. Use another variable name if reconciliation is not desired.")
         end)
