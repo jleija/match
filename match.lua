@@ -291,8 +291,10 @@ local function match_root( pattern, target)
     local second_pass = false
     local predicated_variables = {}
 
-    local function expand_key_abbreviations(pattern)    -- {{{
-        if is_table(pattern) then
+    local function expand_key_abbreviations(pattern, seen)    -- {{{
+        seen = seen or {}
+        if is_table(pattern) and not seen[pattern] then
+            seen[pattern] = true
             if pattern[key_id] then
                 return pattern.vars[pattern[key_id]]
             end
@@ -304,7 +306,7 @@ local function match_root( pattern, target)
                         local expanded_predicates = {}
                         for _, predicate in ipairs(v.predicates) do
                             if type(predicate) == "table" then
-                                table.insert(expanded_predicates, expand_key_abbreviations(predicate))
+                                table.insert(expanded_predicates, expand_key_abbreviations(predicate, seen))
                             else
                                 table.insert(expanded_predicates, predicate)
                             end
@@ -314,7 +316,7 @@ local function match_root( pattern, target)
                         expanded_pattern[v[key_id]] =  new_var
                     end
                 else
-                    expanded_pattern[k] = expand_key_abbreviations(v)
+                    expanded_pattern[k] = expand_key_abbreviations(v, seen)
                 end
             end
             return expanded_pattern

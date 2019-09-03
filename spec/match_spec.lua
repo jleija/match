@@ -156,7 +156,7 @@ describe("match", function()
         assert.is_nil(m.match_root({a={b=2}}, {a={b=1}}))
         assert.is.same({a={b=1},c={d=2}}, m.match_root({a={b=1},c={d=2}}, {a={b=1},c={d=2}}))
     end)
-    it("matches with cyclical references without stack overflow", function()
+    it("matches target with cyclical/circular references without stack overflow", function()
         local a = { x = 1 }
         local b = { x = 2 }
         a.next = b
@@ -165,11 +165,19 @@ describe("match", function()
         assert.is.same({x = 1}, m.match_root( {x=1}, a))
         assert.is.same({x = 2}, m.match_root( {x=2}, b))
     end)
+    it("is ok to have cyclical/circular tables as patterns", function()
+        local a = { x = 1 }
+        local b = { x = 2 }
+        a.next = b
+        b.prev = a
+
+        assert.is.same(a, m.match_root( a, a))
+    end)
     it("matches sub-table in nested tables", function()
         assert.is.same({x=1}, m.match( {x=1}, {a={b={x=1}}}))
         assert.is.same({x=2}, m.match({x=2}, {a={b={x=1},c={x=2}}}))
     end)
-    it("matches sub-table in nested and cyclical tables", function()
+    it("matches sub-table in nested and cyclical/circular tables", function()
         local a = { b = { x = { y = 1 } }}
         local b = { b = { x = { y = 2 } }}
         a.next = b
