@@ -42,6 +42,14 @@ describe("match", function()
         assert.is.truthy(m.match_root( true, true))
         assert.is_nil(m.match_root( {[false]=false}, {[false]=true}))
     end)
+    it("is ok if target raises/throws an exception when accessing an non existing key", function()
+        -- The result should be failure to match, under the assumption 
+        -- that if there was an error it means the key does not exists
+        local incomplete = { x = 1 }
+        local mt = { __index = function(t, k) error("could not find key " .. k) end }
+        setmetatable(incomplete, mt)
+        assert.is_nil(m.match({y=2}, incomplete))
+    end)
     describe("can match by type using one of the type predicates", function()
         it("matches numbers", function()
             local pattern = {x=m.is_number}

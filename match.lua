@@ -433,7 +433,8 @@ local function match_root( pattern, target)
                 end, k
             end
 
-            -- in terra, when t does not have k, it throws a global exception
+            -- a non existing key might return nil or raise/throw an exception
+            -- (ie: the target table has a metatable that raises the exception)
             local status, value = pcall(function() return t[k] end)
             if status and value ~= nil then
                 return function(t, k, v) return match_root_recursive( v, value), k end, k
