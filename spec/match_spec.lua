@@ -14,11 +14,14 @@ describe("match", function()
         assert.is_nil(m.match_root( {}, {x=2}))
     end)
     it("matches shallow tables with some same elements", function()
-        assert.is.same({x = 1}, m.match_root( {x=1}, {x=1,y=2}))
+        assert.is.same({x=1,y=2}, m.match_root( {x=1}, {x=1,y=2}))
+    end)
+    it("returns the original target table for a partial match", function()
+        assert.is.same({x=1, y=2}, m.match_root( {x=1}, {x=1,y=2}))
     end)
     it("matches shallow arrays with some same elements", function()
-        assert.is.same({"a","b"}, m.match_root( {m.value,"b"}, {"a","b","c"}))
-        assert.is.same({"a","b"}, m.match_root( {m.value,m.value}, {"a","b","c"}))
+        assert.is.same({"a","b","c"}, m.match_root( {m.value,"b"}, {"a","b","c"}))
+        assert.is.same({"a","b","c"}, m.match_root( {m.value,m.value}, {"a","b","c"}))
     end)
     it("matches all possible shallow tables with some same elements", function()
         assert.is.same({x = 1, y = 2}, m.match_root( {x=1,y=2}, {x=1,y=2}))
@@ -76,13 +79,14 @@ describe("match", function()
         local is_even = function(x) return x % 2 == 0 end
         it("won't match a false value when value_if is used. Correct use", function()
             local pattern = {x=m.value_if(is_even)}
-            assert.is.truthy(m.match_root(pattern, {x=4})) 
+            assert.is.same({x=4}, m.match_root(pattern, {x=4})) 
             assert.is_nil(m.match_root(pattern, {x=3})) 
         end)
         it("will match a false value in a user predicate and pass it to the consequent. Counter example of value_if", function()
             local pattern = {x=is_even}
-            assert.is.truthy(m.match_root(pattern, {x=4})) 
-            assert.is.same({x=false}, m.match_root(pattern, {x=3})) 
+            assert.is.same({x=4}, m.match_root(pattern, {x=4})) 
+            -- careful: false is a match
+            assert.is.same({x=3}, m.match_root(pattern, {x=3}))
         end)
     end)
     it("can match tables by identity rather than by value", function()
@@ -129,29 +133,24 @@ describe("match", function()
         assert.is.same({[2]=8,[3]=9},m.match_root({m.missing,8,m.rest}, {[2]=8,[3]=9})) 
         assert.is_nil(m.match_root({5,m.missing}, {5,8})) 
     end)
-    it("matches and fills in the blanks with default values", function()
-        local pattern = {x=1, y=m.default_value(5)}
-        assert.is.same({x=1,y=5}, m.match_root(pattern, {x=1})) 
-        assert.is.same({x=1,y=2}, m.match_root(pattern, {x=1,y=2})) 
-    end)
     it("matches if a custom match function returns a value other than nil", function()
         local pattern = {x=function(element) return element == 2 end}
         assert.is.truthy(m.match_root(pattern, {x=2})) 
 
         local pattern = {x=function(element) return element == 2 and true end}
-        assert.is.same({x=true}, m.match_root(pattern, {x=2})) 
+        assert.is.same({x=2}, m.match_root(pattern, {x=2})) 
 
         local pattern = {x=function(element) return element == 2 and false end}
-        assert.is.same({x=false}, m.match_root(pattern, {x=2})) 
+        assert.is.same({x=2}, m.match_root(pattern, {x=2})) 
     end)
     it("matches with special matchers", function()
-        assert.is.same({x = 5}, m.match_root( {x=m.value}, {x=5,y=2}))
+        assert.is.same({x=5, y=2}, m.match_root( {x=m.value}, {x=5,y=2}))
         assert.is_nil(m.match_root( {x=m.value,y=1}, {x=1,y=2}))
         assert.is_nil(m.match_root( {x=m.value}, {y=2}))
     end)
     it("matches elements two-level (any level) deep", function()
         assert.is.same({a={b=1}}, m.match_root({a={b=1}}, {a={b=1}}))
-        assert.is.same({a={b=1}}, m.match_root({a={b=1}}, {a={b=1},x=5}))
+        assert.is.same({a={b=1},x=5}, m.match_root({a={b=1}}, {a={b=1},x=5}))
         assert.is.same({a={b=1},x=5}, m.match_root({a={b=1},x=5}, {a={b=1},x=5}))
         assert.is_nil(m.match_root({a={b=2}}, {a={b=1}}))
         assert.is.same({a={b=1},c={d=2}}, m.match_root({a={b=1},c={d=2}}, {a={b=1},c={d=2}}))
@@ -162,8 +161,8 @@ describe("match", function()
         a.next = b
         b.prev = a
 
-        assert.is.same({x = 1}, m.match_root( {x=1}, a))
-        assert.is.same({x = 2}, m.match_root( {x=2}, b))
+        assert.is.same(a, m.match_root( {x=1}, a))
+        assert.is.same(b, m.match_root( {x=2}, b))
     end)
     it("is ok to have cyclical/circular tables as patterns", function()
         local a = { x = 1 }
@@ -176,6 +175,9 @@ describe("match", function()
     it("matches sub-table in nested tables", function()
         assert.is.same({x=1}, m.match( {x=1}, {a={b={x=1}}}))
         assert.is.same({x=2}, m.match({x=2}, {a={b={x=1},c={x=2}}}))
+    end)
+    it("matches and returns original table and not just matching pattern", function()
+        assert.is.same({x=1, z=2}, m.match( {x=1}, {a={b={x=1, z=2}}}))
     end)
     it("matches sub-table in nested and cyclical/circular tables", function()
         local a = { b = { x = { y = 1 } }}
@@ -203,15 +205,12 @@ describe("match", function()
     end)
     it("matches key and sub-table", function()
         local target = {a={b={x={y=1}, z={y=2}}}}
-        assert.is.same({x={y=1}}, m.match( {[m.key]={y=1}}, target))
-        assert.is.same({z={y=2}}, m.match( {[m.key]={y=2}}, target))
+        assert.is.same({x={y=1}, z={y=2}}, m.match( {[m.key]={y=1}}, target))
+        assert.is.same({z={y=2},x={y=1}}, m.match( {[m.key]={y=2}}, target))
     end)
     it("matches value and tail in an array", function()
-        assert.is.same({"a", {"b", "c"}}, 
+        assert.is.same({"a", "b", "c"}, 
                         m.match( {m.head, m.tail}, {"a", "b", "c"}))
-        local target = {x={y={"a","b","c"}, z={1,2,3,4,5}}}
-        assert.is.same({z={1,2,{3,4,5}}}, 
-                        m.match( {[m.key]={1, m.value, m.tail}}, target))
     end)
     it("matches value and rest in an array", function()
         assert.is.same({"a", "b", "c"}, 
@@ -241,20 +240,20 @@ describe("match", function()
                                                 mean = 45,
                                                 max = 70}},
         }
-        assert.is.same({name="type",type="char"},
+        assert.is.same({name="type",type="char",other="x"},
                        m.match({name="type",type=m.value}, array))
-        assert.is.same({name="stats", stats={mean=45,max=70}},
+        assert.is.same({name="stats", stats={mean=45,max=70}, type="struct_a"},
                        m.match({name=m.value, [m.key]=
                                   {mean=m.value,max=m.value}}, array))
-        assert.is.same({mean=45},m.match({mean=m.value}, array))
-        assert.is.same({name="type",other="x"},
+        assert.is.same({mean=45,max=70},m.match({mean=m.value}, array))
+        assert.is.same({name="type",other="x",type="char"},
                                 m.match( {name=m.value,other="x"}, array))
     end)
     describe("match_all", function()
         it("can return all matches", function()
             assert.is.same({{x=5,y=2},{x=5,y=3}}, m.match_all( {x=5,y=m.value},
                                                         {{x=5,y=2},{x=5,y=3}}))
-            assert.is.same({{y=2},{y=3}}, m.match_all( {y=m.value}, 
+            assert.is.same({{y=2,x=5},{y=3,x=5}}, m.match_all( {y=m.value}, 
                                                         {{x=5,y=2},{x=5,y=3}}))
             assert.is.same(5, m.match_all( m.value, 5))
             assert.is.same({{x=5,y=2},{x=5,y=3,z=4}}, m.match_all( {x=5,m.rest}, 
@@ -737,7 +736,7 @@ describe("matcher", function()
         assert.is.equal("catch-all value", matcher(5))
     end)
     it("applies matching custom function transform with whole matched set", function()
-        assert.is.same({id=32,a=1,b=2}, matcher{a=1,b=2,z=3})
+        assert.is.same({id=32,a=1,b=2,z=3}, matcher{a=1,b=2,z=3})
     end)
     it("applies matching custom function transform with captures", function()
         assert.is.equal(5, matcher{sum={a=2,b=3}})

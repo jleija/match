@@ -93,17 +93,6 @@ local function id(v) return function(x) return v == x and v or nil end end
 local function value(v) return v end
 local function otherwise(v) return v end
 
-local default_values_to_promises = {}
-local default_promises = {}
-local function default_value(x) 
-    local default_promise = default_values_to_promises[x]
-    if default_promise then return default_promise end
-    default_promise = function() return x end
-    default_values_to_promises[x] = default_promise
-    default_promises[default_promise] = true
-    return default_promise
-end
-
 local function key(k) return k end
 local function tail(t, k)
     assert(is_array(t), "tail can be applied only to arrays")
@@ -443,14 +432,6 @@ local function match_root( pattern, target)
                     return nothing(t, pattern), k
                 end, k
             end
-            local value_promise = default_promises[v] 
-            if value_promise then
-                return function(t, _, _)
-                    local value = t[k]
-                    if value ~= nil then return value, k end
-                    return v(), k
-                end, k
-            end
 
             -- in terra, when t does not have k, it throws a global exception
             local status, value = pcall(function() return t[k] end)
@@ -573,7 +554,7 @@ local function match_root( pattern, target)
         return nil
     end
     
-    return matched_table, captures, vars
+    return target, captures, vars
 end
 
 local function either(...)
@@ -841,7 +822,6 @@ return {
     otherwise = otherwise,
     optional = optional,
     missing = missing,
-    default_value = default_value,
     head = value,
     rest = rest_promise,
     nothing = nothing_promise,
