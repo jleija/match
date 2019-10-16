@@ -63,7 +63,7 @@ describe("match-refine", function()
         }
         assert.is.equal( 10, refiner{a=2, b=3})
     end)
-    it("does #multiple rolling projections collecting vars with intermediate vars", function()
+    it("does multiple rolling projections collecting vars with intermediate vars", function()
         local function inc(x) return 5 + x end
         local refiner = mr.match_refine{
             { 1 , { { x = inc }, { y = mr.vars.x } } },
@@ -130,7 +130,7 @@ describe("match-refine", function()
         assert.is.same( {a=1,b=2,x=1,y=2}, refiner{a=1,b=2})
         assert.is.same( {a=1,z=2,x=1,y=2}, refiner{z=2})
     end)
-    it("can use table variables with #nested tables", function()
+    it("can use table variables with nested tables", function()
         local refiner = mr.match_refine{
             { {K.a, K.b}, { { x = mr.vars.a, y = mr.vars.b.c.d } } }
         }

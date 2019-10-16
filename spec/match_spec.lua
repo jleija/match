@@ -258,14 +258,20 @@ describe("match", function()
                                 m.match( {name=m.value,other="x"}, array))
     end)
     describe("match_all", function()
-        it("can return all matches", function()
+        it("can return all matches from flat array", function()
             assert.is.same({{x=5,y=2},{x=5,y=3}}, m.match_all( {x=5,y=m.value},
                                                         {{x=5,y=2},{x=5,y=3}}))
             assert.is.same({{y=2,x=5},{y=3,x=5}}, m.match_all( {y=m.value}, 
                                                         {{x=5,y=2},{x=5,y=3}}))
-            assert.is.same(5, m.match_all( m.value, 5))
+            assert.is.same({5}, m.match_all( m.value, 5))
+            assert.is.same({5,5}, m.match_all( 5, {5,3,5}))
             assert.is.same({{x=5,y=2},{x=5,y=3,z=4}}, m.match_all( {x=5,m.rest}, 
                                                     {{x=5,y=2},{x=5,y=3,z=4}}))
+        end)
+        it("can return all matches in nested tables", function()
+            assert.is.same({{x=5,where='top',y={where='y',x=5}}, {x=5,where='y'}}, 
+                m.match_all({x=5,where=m.value},
+                            {{x=5,where='top',y={where='y',x=5}}}))
         end)
     end)
     describe("key capture", function()
@@ -364,12 +370,12 @@ describe("match", function()
         end)
         it("keeps the last variable matched value in vars when a match_all is performed", function()
             local X = V.x
-            local matched, captures, vars = m.match_all(X, {1, 1, 1})
+            local matched, captures, vars = m.match_all(X(m.is_number), {1, 1, 1})
             assert.is.same({1,1,1}, matched)
             assert.is.equal(1, X())
 
             local X = V.x
-            local matched, captures, vars = m.match_all(X, {1, 1, 2})
+            local matched, captures, vars = m.match_all(X(m.is_number), {1, 1, 2})
             assert.is.truthy(matched)
             assert.is.same({1,1,2}, matched)
             assert.is.equal(2, X())     -- last value

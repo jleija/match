@@ -606,30 +606,34 @@ local function find(pattern, target)
     return nil
 end
 
-local function match_all(pattern, target, visited)
-    local capture_array = {}
-    local var_array = {}
+local function match_all(pattern, target, matched_so_far, captured_so_far, vars_so_far, visited)
+    matched_so_far = matched_so_far or {}
+    captured_so_far = captured_so_far or {}
+    vars_so_far = vars_so_far or {}
 
     if type(target) == "table" then
-        local matched = {}
         visited = visited or {}
-        visited[target] = true
-        for k, v in pairs(target) do
-            if not visited[v] then
-                local res, captures, vars = match(pattern, v, visited)
-                if res ~= nil then 
-                    table.insert(matched, res) 
-                    table.insert(capture_array, captures)
-                    table.insert(var_array, vars)
-                end
+        if not visited[target] then
+            local res, captures, vars = match_root(pattern, target)
+            if res ~= nil then 
+                table.insert(matched_so_far, res) 
+                table.insert(captured_so_far, captures)
+                table.insert(vars_so_far, vars)
+            end
+            visited[target] = true
+            for k, v in pairs(target) do
+                match_all(pattern, v, matched_so_far, captured_so_far, vars_so_far, visited)
             end
         end
-        return matched, capture_array, var_array
     else
         local res, captures, vars = match_root( pattern, target)
-        if res ~= nil then return res, { captures }, { vars } end
+        if res ~= nil then 
+            table.insert(matched_so_far, res) 
+            table.insert(captured_so_far, captures)
+            table.insert(vars_so_far, vars)
+        end
     end
-    return {}, {}, {}
+    return matched_so_far, captured_so_far, vars_so_far
 end
 
 local is_const_transform_type = {
