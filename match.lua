@@ -606,7 +606,7 @@ local function find(pattern, target)
     return nil
 end
 
-local function match_all(pattern, target, matched_so_far, captured_so_far, vars_so_far, visited)
+local function match_all_recursive(pattern, target, guiding_keys, matched_so_far, captured_so_far, vars_so_far, visited)
     matched_so_far = matched_so_far or {}
     captured_so_far = captured_so_far or {}
     vars_so_far = vars_so_far or {}
@@ -622,7 +622,9 @@ local function match_all(pattern, target, matched_so_far, captured_so_far, vars_
             end
             visited[target] = true
             for k, v in pairs(target) do
-                match_all(pattern, v, matched_so_far, captured_so_far, vars_so_far, visited)
+                if type(k) == "number" or not guiding_keys or guiding_keys[k] then
+                    match_all_recursive(pattern, v, guiding_keys, matched_so_far, captured_so_far, vars_so_far, visited)
+                end
             end
         end
     else
@@ -634,6 +636,19 @@ local function match_all(pattern, target, matched_so_far, captured_so_far, vars_
         end
     end
     return matched_so_far, captured_so_far, vars_so_far
+end
+
+local function match_all(pattern, target)
+    return match_all_recursive(pattern, target, false)
+end
+
+local function match_all_restricted(pattern, target, guiding_keys)
+    assert(is_array(guiding_keys), "Guiding keys must be an array of string keys")
+    local keys = {}
+    for _, key in ipairs(guiding_keys) do
+        keys[key] = true
+    end
+    return match_all_recursive(pattern, target, keys)
 end
 
 local is_const_transform_type = {
@@ -838,6 +853,7 @@ return {
     apply_vars = apply_vars,
     find = find,
     match_all = match_all,
+    match_all_restricted = match_all_restricted,
     matcher = matcher,
     matched_value = matched_value,
     as_is = as_is,

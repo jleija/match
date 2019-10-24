@@ -274,6 +274,16 @@ describe("match", function()
                             {{x=5,where='top',y={where='y',x=5}}}))
         end)
     end)
+    describe("match_all_restricted", function()
+        local K = m.namespace().keys
+        it("searches through specified keys/tags only", function()
+            assert.is.same({ {x=2} }, 
+                m.match_all_restricted(
+                            {K.x},
+                            {through_here = { x = 2}, not_through_here = { x = 5} },
+                            {"through_here"}))
+        end)
+    end)
     describe("key capture", function()
         local K = m.namespace().keys
         it("matches keys and captures their value", function()
